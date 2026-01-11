@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Feed 3:4</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilo para esconder a scrollbar mantendo a funcionalidade */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+
+<body class="bg-zinc-950 text-zinc-100 min-h-screen font-sans">
+
+    <div class="max-w-[600px] mx-auto p-4 md:p-8">
+
+        <header class="flex flex-col gap-4 mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight">Feed Previewer</h1>
+                    <p class="text-zinc-500 text-xs uppercase tracking-widest mt-1">Proporção 3:4</p>
+                </div>
+                <button onclick="clearFeed()"
+                    class="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-red-950/30 text-red-500 border border-zinc-800 rounded-lg transition-all text-sm font-semibold">
+                    Limpar Feed
+                </button>
+            </div>
+        </header>
+
+        <div id="feed-grid" class="grid grid-cols-3 gap-1 bg-zinc-900 p-1 rounded-sm shadow-2xl">
+        </div>
+
+        <button onclick="addMoreSlots()"
+            class="w-full mt-6 py-4 border-2 border-dashed border-zinc-800 rounded-xl text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all flex items-center justify-center gap-2 font-medium">
+            <span>+ Adicionar Nova Linha</span>
+        </button>
+
+        <footer class="mt-12 text-center text-zinc-600 text-xs italic">
+            Clique em qualquer quadrado para fazer upload. <br>
+            As imagens são processadas localmente no seu navegador.
+        </footer>
+    </div>
+
+    <input type="file" id="global-file-input" accept="image/*" class="hidden">
+
+    <script>
+        // --- Estado e Seletores ---
+        const feedGrid = document.getElementById('feed-grid');
+        const fileInput = document.getElementById('global-file-input');
+        let activeSlot = null; // Armazena qual slot está sendo editado
+        let slotCount = 9;     // Começamos com 9 espaços (3x3)
+
+        // --- Inicialização ---
+        function init() {
+            for (let i = 0; i < slotCount; i++) {
+                createSlot();
+            }
+        }
+
+        // --- Funções Principais ---
+
+        /**
+         * Cria um novo elemento de slot no grid
+         */
+        function createSlot() {
+            const slot = document.createElement('div');
+            // aspect-[3/4] define a proporção vertical solicitada
+            slot.className = `
+                relative aspect-[3/4] bg-zinc-800 cursor-pointer 
+                group overflow-hidden transition-all hover:bg-zinc-700
+                flex items-center justify-center border border-zinc-900/50
+            `;
+
+            // Conteúdo inicial (Placeholder)
+            slot.innerHTML = `
+                <div class="flex flex-col items-center gap-1 opacity-20 group-hover:opacity-50 transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                </div>
+                <img src="" class="absolute inset-0 w-full h-full object-cover hidden">
+            `;
+
+            // Evento de clique para abrir o seletor de arquivos
+            slot.onclick = () => {
+                activeSlot = slot;
+                fileInput.click();
+            };
+
+            feedGrid.appendChild(slot);
+        }
+
+        /**
+         * Manipula a seleção do arquivo e gera a preview
+         */
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file && activeSlot) {
+                const imgTag = activeSlot.querySelector('img');
+                const placeholder = activeSlot.querySelector('div');
+
+                // Libera memória se já houver uma imagem anterior (URL.revokeObjectURL)
+                if (imgTag.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(imgTag.src);
+                }
+
+                const url = URL.createObjectURL(file);
+
+                // Atualiza a UI
+                imgTag.src = url;
+                imgTag.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            }
+            // Reseta o input para permitir a mesma foto em outro slot
+            e.target.value = '';
+        };
+
+        /**
+         * Adiciona mais 3 slots (uma linha inteira)
+         */
+        function addMoreSlots() {
+            for (let i = 0; i < 3; i++) {
+                createSlot();
+            }
+        }
+
+        /**
+         * Limpa todo o grid, voltando ao estado inicial e liberando memória
+         */
+        function clearFeed() {
+            if (confirm("Deseja resetar todo o seu planejamento visual?")) {
+                const imgs = feedGrid.querySelectorAll('img');
+                imgs.forEach(img => {
+                    if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+                    img.src = '';
+                    img.classList.add('hidden');
+                });
+
+                const placeholders = feedGrid.querySelectorAll('div');
+                placeholders.forEach(p => p.classList.remove('hidden'));
+            }
+        }
+
+        // Iniciar o grid ao carregar a página
+        init();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Crop Tool | 1080x1350 Resolution</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+
+    <style>
+        .cropper-modal {
+            opacity: 0.8;
+            background-color: #0f172a;
+        }
+
+        .cropper-view-box {
+            outline: 2px solid #3b82f6;
+            outline-color: rgba(59, 130, 246, 0.75);
+        }
+
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+
+    <div class="w-full max-w-4xl bg-slate-900 rounded-2xl shadow-2xl border border-slate-800 overflow-hidden">
+
+        <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-white">Image Cropper <span
+                        class="text-blue-500 text-sm font-mono">1080x1350 px</span></h1>
+                <p class="text-xs text-slate-400 uppercase tracking-widest">High-Density Export</p>
+            </div>
+            <div id="statusBadge"
+                class="hidden px-3 py-1 bg-blue-500/10 text-blue-400 text-xs font-semibold rounded-full border border-blue-500/20">
+                Resolução Fixa Ativa
+            </div>
+        </div>
+
+        <div id="dropzone"
+            class="relative group cursor-pointer transition-all border-2 border-dashed border-slate-700 m-8 rounded-xl flex flex-col items-center justify-center py-20 px-4 hover:border-blue-500 hover:bg-slate-800/50">
+            <div class="bg-slate-800 p-4 rounded-full group-hover:bg-blue-600/20 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg"
+                    class="h-10 w-10 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none"
+                    viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+            </div>
+            <p class="text-lg font-medium mt-4">Solte sua imagem aqui</p>
+            <p class="text-sm text-slate-500 mt-1">Formatos suportados: JPG, PNG, WEBP</p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+
+        <div id="editorWrapper" class="hidden p-6">
+            <div
+                class="bg-slate-950 rounded-lg overflow-hidden border border-slate-800 shadow-inner max-h-[60vh] flex justify-center">
+                <img id="imageToCrop" class="max-w-full block">
+            </div>
+
+            <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 border-t border-slate-800 pt-6">
+                <button onclick="rotateLeft()"
+                    class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all border border-slate-700 active:scale-95">
+                    <span class="text-lg">↺</span> Girar -90°
+                </button>
+
+                <button onclick="rotateRight()"
+                    class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl transition-all border border-slate-700 active:scale-95">
+                    <span class="text-lg">↻</span> Girar 90°
+                </button>
+
+                <button onclick="resetCrop()"
+                    class="flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:text-red-400 rounded-xl transition-all border border-slate-700 active:scale-95">
+                    <span>重</span> Resetar
+                </button>
+
+                <button onclick="exportImage()"
+                    class="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-95">
+                    <span>⬇</span> Baixar 1080x1350
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <script>
+        let cropper;
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('fileInput');
+        const imageElement = document.getElementById('imageToCrop');
+        const editorWrapper = document.getElementById('editorWrapper');
+        const statusBadge = document.getElementById('statusBadge');
+
+        dropzone.onclick = () => fileInput.click();
+
+        dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('border-blue-500'); };
+        dropzone.ondragleave = () => dropzone.classList.remove('border-blue-500');
+        dropzone.ondrop = (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files[0]);
+        };
+
+        fileInput.onchange = (e) => {
+            if (e.target.files.length) handleFiles(e.target.files[0]);
+        };
+
+        function handleFiles(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imageElement.src = e.target.result;
+                dropzone.classList.add('hidden');
+                editorWrapper.classList.remove('hidden');
+                statusBadge.classList.remove('hidden');
+
+                if (cropper) cropper.destroy();
+
+                cropper = new Cropper(imageElement, {
+                    aspectRatio: 0.8, // 4:5
+                    viewMode: 1,
+                    dragMode: 'move',
+                    autoCropArea: 1,
+                    background: false,
+                    responsive: true,
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function rotateLeft() { cropper.rotate(-90); }
+        function rotateRight() { cropper.rotate(90); }
+        function resetCrop() { cropper.reset(); }
+
+        function exportImage() {
+            if (!cropper) return;
+
+            // CONFIGURAÇÃO CRUCIAL: Forçar dimensões de saída
+            const canvas = cropper.getCroppedCanvas({
+                width: 1080,
+                height: 1350,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+
+            const timestamp = Date.now();
+
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `instagram-portrait-${timestamp}.jpg`;
+                a.click();
+
+                // Feedback de UX
+                const btn = event.currentTarget;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = "✓ Concluído!";
+                btn.classList.replace('bg-blue-600', 'bg-green-600');
+
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.replace('bg-green-600', 'bg-blue-600');
+                }, 2000);
+            }, 'image/jpeg', 0.92); // Qualidade balanceada para web
+        }
+    </script>
+</body>
+
+</html>
