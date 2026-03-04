@@ -292,6 +292,7 @@
             
             const textWidth = ctx.measureText(state.text).width + state.spacing;
             
+            // O deslocamento por frame no preview é velocity * 0.5 (considerando 60fps)
             const moveStep = (state.velocity * 0.5);
             if (state.direction === 'left') {
                 state.offset -= moveStep;
@@ -324,7 +325,6 @@
             errorAlert.classList.add('hidden');
             
             try {
-                // Bypass CORS for worker
                 const workerResponse = await fetch(GIF_WORKER_URL);
                 const workerBlob = await workerResponse.blob();
                 const workerBlobURL = URL.createObjectURL(workerBlob);
@@ -348,6 +348,11 @@
                 tctx.font = `${state.fontSize}px "BOMA MONO", "Courier New", monospace`;
                 const textWidth = tctx.measureText(state.text).width + state.spacing;
                 
+                // Cálculo para sincronizar a velocidade:
+                // Se no preview (60fps) movemos 0.5 * velocity, em 1 segundo movemos 30 * velocity pixels.
+                // No GIF (20fps), para manter a mesma velocidade, movemos (30 * velocity) / 20 = 1.5 * velocity por frame.
+                const speedPerFrame = state.velocity * 1.5;
+
                 for (let i = 0; i < totalFrames; i++) {
                     tctx.fillStyle = state.bgColor;
                     tctx.fillRect(0, 0, 800, 40);
@@ -356,8 +361,12 @@
                     tctx.font = `${state.fontSize}px "BOMA MONO", "Courier New", monospace`;
                     tctx.textBaseline = 'middle';
                     
-                    const frameOffset = (i / totalFrames) * textWidth * (state.direction === 'left' ? -1 : 1);
-                    
+                    // Calculamos o deslocamento com base no frame atual multiplicado pela velocidade corrigida
+                    let frameOffset = (i * speedPerFrame) % textWidth;
+                    if (state.direction === 'left') {
+                        frameOffset = -frameOffset;
+                    }
+
                     for (let j = -1; j < (800 / textWidth) + 2; j++) {
                         tctx.fillText(state.text, frameOffset + (j * textWidth), 20 + 2);
                     }
