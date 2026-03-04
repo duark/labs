@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boma Mono GIF Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @font-face {
+            font-family: 'BOMA MONO';
+            src: url('BOMA-MONO.otf') format('opentype');
+        }
+        body {
+            background-color: #171717;
+            color: white;
+            font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        }
+        input[type="range"] {
+            accent-color: #ec4899;
+        }
+        .canvas-container {
+            background-color: #000;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #171717;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 custom-scrollbar">
+    <div class="max-w-4xl mx-auto space-y-8">
+        
+        <!-- Cabeçalho -->
+        <div class="flex items-center justify-between border-b border-neutral-800 pb-6">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tighter text-pink-500">BOMA MONO <span class="text-white">GIF GEN</span></h1>
+                <p class="text-neutral-400 text-sm">Banners 800x40 - Somente minúsculas</p>
+            </div>
+            <div class="bg-neutral-800 p-2 rounded-lg text-neutral-500">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            </div>
+        </div>
+
+        <!-- Alerta de Erro -->
+        <div id="error-alert" class="hidden bg-red-500/10 border border-red-500/50 p-4 rounded-xl flex items-center gap-3 text-red-500 text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p id="error-message"></p>
+        </div>
+
+        <!-- Área de Preview -->
+        <div class="space-y-2">
+            <label class="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Preview ao Vivo
+            </label>
+            <div class="relative group overflow-x-auto border border-neutral-700 rounded-lg p-4 bg-black flex justify-center shadow-2xl">
+                <canvas id="preview-canvas" width="800" height="40" class="max-w-full h-auto rounded border border-white/5"></canvas>
+            </div>
+        </div>
+
+        <!-- Grade de Controles -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Entrada de Texto -->
+            <div class="bg-neutral-800 p-6 rounded-2xl space-y-4 shadow-lg">
+                <div class="flex items-center gap-2 text-pink-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                    <h2 class="font-bold uppercase text-sm tracking-wider">Conteúdo</h2>
+                </div>
+                <textarea id="input-text" class="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-4 text-white focus:ring-2 focus:ring-pink-500 outline-none h-24 resize-none lowercase font-mono" placeholder="digite sua mensagem aqui...">last call _ carnaboma _ virada de lote hoje _</textarea>
+            </div>
+
+            <!-- Configurações de Movimento -->
+            <div class="bg-neutral-800 p-6 rounded-2xl space-y-6 shadow-lg">
+                <div class="flex items-center gap-2 text-pink-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    <h2 class="font-bold uppercase text-sm tracking-wider">Movimento e Espaço</h2>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-[10px] text-neutral-500 font-bold uppercase">
+                                <span>Velocidade</span>
+                                <span id="val-velocity" class="text-pink-500 font-mono">5x</span>
+                            </div>
+                            <input type="range" id="input-velocity" min="1" max="20" value="5" class="w-full">
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-[10px] text-neutral-500 font-bold uppercase">
+                                <span>Duração</span>
+                                <span id="val-duration" class="text-pink-500 font-mono">2s</span>
+                            </div>
+                            <input type="range" id="input-duration" min="1" max="10" value="2" class="w-full">
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-[10px] text-neutral-500 font-bold uppercase">
+                                <span>Tam. Texto</span>
+                                <span id="val-font-size" class="text-pink-500 font-mono">24px</span>
+                            </div>
+                            <input type="range" id="input-font-size" min="8" max="38" value="24" class="w-full">
+                        </div>
+
+                        <div class="space-y-2">
+                            <div class="flex justify-between items-center text-[10px] text-neutral-500 font-bold uppercase">
+                                <span>Espaçamento</span>
+                                <span id="val-spacing" class="text-pink-500 font-mono">50px</span>
+                            </div>
+                            <input type="range" id="input-spacing" min="0" max="300" value="50" class="w-full">
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 pt-2">
+                        <button id="btn-left" class="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition bg-pink-600 text-white shadow-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 8 4 4-4 4"/><path d="M2 12h20"/><path d="m6 16-4-4 4-4"/></svg>
+                            ESQUERDA
+                        </button>
+                        <button id="btn-right" class="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition bg-neutral-700 text-neutral-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rotate-180"><path d="m18 8 4 4-4 4"/><path d="M2 12h20"/><path d="m6 16-4-4 4-4"/></svg>
+                            DIREITA
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seleção de Cores -->
+            <div class="bg-neutral-800 p-6 rounded-2xl space-y-4 shadow-lg">
+                <div class="flex items-center gap-2 text-pink-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.92 0 1.71-.7 1.71-1.61 0-.43-.17-.83-.44-1.13a1.74 1.74 0 0 1-.37-1.01c0-.94.76-1.71 1.71-1.71h1.59C19.34 16.54 22 13.88 22 10.5 22 5.8 17.5 2 12 2Z"/></svg>
+                    <h2 class="font-bold uppercase text-sm tracking-wider">Cores</h2>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="text-[10px] text-neutral-500 font-bold uppercase">Fundo</label>
+                        <div class="flex items-center gap-3 bg-neutral-900 p-3 rounded-xl border border-neutral-700">
+                            <input type="color" id="input-bg-color" value="#ff00ff" class="w-8 h-8 rounded cursor-pointer bg-transparent border-none">
+                            <span id="hex-bg" class="text-xs font-mono uppercase">#FF00FF</span>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] text-neutral-500 font-bold uppercase">Texto</label>
+                        <div class="flex items-center gap-3 bg-neutral-900 p-3 rounded-xl border border-neutral-700">
+                            <input type="color" id="input-text-color" value="#000000" class="w-8 h-8 rounded cursor-pointer bg-transparent border-none">
+                            <span id="hex-text" class="text-xs font-mono uppercase">#000000</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ação de Exportação -->
+            <div class="bg-neutral-800 p-6 rounded-2xl flex flex-col justify-center gap-4 border-2 border-pink-500/20 shadow-xl">
+                <div id="status-container" class="hidden space-y-4 p-2">
+                    <div class="flex justify-between text-xs font-bold text-pink-500 animate-pulse">
+                        <span>PROCESSANDO...</span>
+                        <span id="progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-neutral-900 h-2 rounded-full overflow-hidden">
+                        <div id="progress-bar" class="bg-pink-500 h-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <button id="btn-generate" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition transform active:scale-95 shadow-lg group">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:-translate-y-1 transition-transform"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    EXPORTAR GIF 800x40
+                </button>
+
+                <div id="result-container" class="hidden space-y-3 mt-2 border-t border-neutral-700 pt-4 text-center">
+                    <label class="text-xs font-bold uppercase tracking-widest text-neutral-500 flex items-center gap-2 justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        GIF Gerado
+                    </label>
+                    <div class="p-2 bg-black rounded-lg border border-neutral-700 overflow-hidden">
+                        <img id="result-gif" class="max-w-full h-auto rounded" alt="GIF Resultante">
+                    </div>
+                    <a id="link-download" href="#" download="boma-marquee.gif" class="inline-block text-[10px] font-bold text-pink-500 hover:text-pink-400 uppercase tracking-widest border-b border-pink-500/30 pb-1 mt-2">
+                        Baixar Arquivo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bibliotecas Necessárias -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"></script>
+
+    <script>
+        const GIF_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js';
+        
+        // Elementos do DOM
+        const canvas = document.getElementById('preview-canvas');
+        const ctx = canvas.getContext('2d');
+        const inputText = document.getElementById('input-text');
+        const inputBgColor = document.getElementById('input-bg-color');
+        const inputTextColor = document.getElementById('input-text-color');
+        const inputFontSize = document.getElementById('input-font-size');
+        const inputSpacing = document.getElementById('input-spacing');
+        const inputVelocity = document.getElementById('input-velocity');
+        const inputDuration = document.getElementById('input-duration');
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        const btnGenerate = document.getElementById('btn-generate');
+        
+        const hexBg = document.getElementById('hex-bg');
+        const hexText = document.getElementById('hex-text');
+        const valVelocity = document.getElementById('val-velocity');
+        const valDuration = document.getElementById('val-duration');
+        const valFontSize = document.getElementById('val-font-size');
+        const valSpacing = document.getElementById('val-spacing');
+        
+        const statusContainer = document.getElementById('status-container');
+        const progressText = document.getElementById('progress-text');
+        const progressBar = document.getElementById('progress-bar');
+        const resultContainer = document.getElementById('result-container');
+        const resultGif = document.getElementById('result-gif');
+        const linkDownload = document.getElementById('link-download');
+        const errorAlert = document.getElementById('error-alert');
+        const errorMessage = document.getElementById('error-message');
+
+        // Estado do App
+        let state = {
+            text: inputText.value,
+            bgColor: inputBgColor.value,
+            textColor: inputTextColor.value,
+            fontSize: parseInt(inputFontSize.value),
+            spacing: parseInt(inputSpacing.value),
+            velocity: parseInt(inputVelocity.value),
+            duration: parseInt(inputDuration.value),
+            direction: 'left',
+            offset: 0
+        };
+
+        // Atualização de labels e estado
+        function updateState() {
+            state.text = inputText.value.toLowerCase();
+            state.bgColor = inputBgColor.value;
+            state.textColor = inputTextColor.value;
+            state.fontSize = parseInt(inputFontSize.value);
+            state.spacing = parseInt(inputSpacing.value);
+            state.velocity = parseInt(inputVelocity.value);
+            state.duration = parseInt(inputDuration.value);
+            
+            hexBg.textContent = state.bgColor.toUpperCase();
+            hexText.textContent = state.textColor.toUpperCase();
+            valVelocity.textContent = state.velocity + 'x';
+            valDuration.textContent = state.duration + 's';
+            valFontSize.textContent = state.fontSize + 'px';
+            valSpacing.textContent = state.spacing + 'px';
+        }
+
+        // Eventos de entrada
+        [inputText, inputBgColor, inputTextColor, inputFontSize, inputSpacing, inputVelocity, inputDuration].forEach(el => {
+            el.addEventListener('input', updateState);
+        });
+
+        btnLeft.addEventListener('click', () => {
+            state.direction = 'left';
+            btnLeft.classList.replace('bg-neutral-700', 'bg-pink-600');
+            btnLeft.classList.replace('text-neutral-400', 'text-white');
+            btnRight.classList.replace('bg-pink-600', 'bg-neutral-700');
+            btnRight.classList.replace('text-white', 'text-neutral-400');
+            btnLeft.classList.add('shadow-lg');
+            btnRight.classList.remove('shadow-lg');
+        });
+
+        btnRight.addEventListener('click', () => {
+            state.direction = 'right';
+            btnRight.classList.replace('bg-neutral-700', 'bg-pink-600');
+            btnRight.classList.replace('text-neutral-400', 'text-white');
+            btnLeft.classList.replace('bg-pink-600', 'bg-neutral-700');
+            btnLeft.classList.replace('text-white', 'text-neutral-400');
+            btnRight.classList.add('shadow-lg');
+            btnLeft.classList.remove('shadow-lg');
+        });
+
+        // Loop de animação do Preview
+        function animate() {
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, 800, 40);
+            
+            ctx.fillStyle = state.textColor;
+            ctx.font = `${state.fontSize}px "BOMA MONO", "Courier New", monospace`;
+            ctx.textBaseline = 'middle';
+            
+            const textWidth = ctx.measureText(state.text).width + state.spacing;
+            
+            const moveStep = (state.velocity * 0.5);
+            if (state.direction === 'left') {
+                state.offset -= moveStep;
+                if (state.offset < -textWidth) state.offset = 0;
+            } else {
+                state.offset += moveStep;
+                if (state.offset > 0) state.offset = -textWidth;
+            }
+
+            for (let i = -1; i < (800 / textWidth) + 2; i++) {
+                ctx.fillText(state.text, state.offset + (i * textWidth), 20 + 2);
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        requestAnimationFrame(animate);
+
+        // Função de Exportação
+        async function generateGif() {
+            if (typeof GIF === 'undefined') {
+                showError("Biblioteca GIF.js não carregada.");
+                return;
+            }
+
+            btnGenerate.disabled = true;
+            btnGenerate.classList.add('opacity-50');
+            statusContainer.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+            errorAlert.classList.add('hidden');
+            
+            try {
+                // Bypass CORS for worker
+                const workerResponse = await fetch(GIF_WORKER_URL);
+                const workerBlob = await workerResponse.blob();
+                const workerBlobURL = URL.createObjectURL(workerBlob);
+
+                const gif = new GIF({
+                    workers: 2,
+                    quality: 10,
+                    width: 800,
+                    height: 40,
+                    workerScript: workerBlobURL
+                });
+
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 800;
+                tempCanvas.height = 40;
+                const tctx = tempCanvas.getContext('2d');
+                
+                const fps = 20;
+                const totalFrames = state.duration * fps;
+                
+                tctx.font = `${state.fontSize}px "BOMA MONO", "Courier New", monospace`;
+                const textWidth = tctx.measureText(state.text).width + state.spacing;
+                
+                for (let i = 0; i < totalFrames; i++) {
+                    tctx.fillStyle = state.bgColor;
+                    tctx.fillRect(0, 0, 800, 40);
+                    
+                    tctx.fillStyle = state.textColor;
+                    tctx.font = `${state.fontSize}px "BOMA MONO", "Courier New", monospace`;
+                    tctx.textBaseline = 'middle';
+                    
+                    const frameOffset = (i / totalFrames) * textWidth * (state.direction === 'left' ? -1 : 1);
+                    
+                    for (let j = -1; j < (800 / textWidth) + 2; j++) {
+                        tctx.fillText(state.text, frameOffset + (j * textWidth), 20 + 2);
+                    }
+
+                    gif.addFrame(tctx, { copy: true, delay: 1000 / fps });
+                }
+
+                gif.on('progress', (p) => {
+                    const percent = Math.round(p * 100);
+                    progressText.textContent = percent + '%';
+                    progressBar.style.width = percent + '%';
+                });
+
+                gif.on('finished', (blob) => {
+                    const url = URL.createObjectURL(blob);
+                    resultGif.src = url;
+                    linkDownload.href = url;
+                    
+                    statusContainer.classList.add('hidden');
+                    resultContainer.classList.remove('hidden');
+                    btnGenerate.disabled = false;
+                    btnGenerate.classList.remove('opacity-50');
+                    URL.revokeObjectURL(workerBlobURL);
+                });
+
+                gif.render();
+            } catch (err) {
+                showError("Erro na geração: " + err.message);
+                btnGenerate.disabled = false;
+                btnGenerate.classList.remove('opacity-50');
+                statusContainer.classList.add('hidden');
+            }
+        }
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorAlert.classList.remove('hidden');
+        }
+
+        btnGenerate.addEventListener('click', generateGif);
+    </script>
+</body>
+</html>
