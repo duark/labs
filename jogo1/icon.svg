@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#080808"/>
+  <!-- b o -->
+  <text x="256" y="192" font-family="'Courier New',Courier,monospace" font-size="200" font-weight="bold"
+        text-anchor="middle" dominant-baseline="middle">
+    <tspan fill="#00e5ff">b</tspan><tspan fill="#ffd600">o</tspan>
+  </text>
+  <!-- m a -->
+  <text x="256" y="370" font-family="'Courier New',Courier,monospace" font-size="200" font-weight="bold"
+        text-anchor="middle" dominant-baseline="middle">
+    <tspan fill="#ff44cc">m</tspan><tspan fill="#66ff66">a</tspan>
+  </text>
+</svg>
