@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BOMA-TETRIS</title>
+  <title>boma-tetris</title>
   <style>
     @font-face {
       font-family: 'BomaMono';
@@ -52,7 +52,7 @@
       letter-spacing: 3px;
       color: #444;
       margin-bottom: 6px;
-      text-transform: uppercase;
+      text-transform: lowercase;
     }
 
     .panel .value {
@@ -131,6 +131,53 @@
     }
     #overlay button:hover { background: #fff; color: #000; }
 
+    /* name input */
+    #player-name {
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #333;
+      color: #fff;
+      font-family: 'BomaMono', monospace;
+      font-size: 15px;
+      letter-spacing: 3px;
+      padding: 8px 4px;
+      outline: none;
+      text-align: center;
+      width: 220px;
+    }
+    #player-name::placeholder { color: #333; }
+    #player-name:focus { border-bottom-color: #666; }
+    #name-error { font-size: 10px; color: #ff4455; letter-spacing: 2px; min-height: 14px; margin-top: 4px; text-align: center; }
+
+    /* leaderboard */
+    #ov-leaderboard { width: 280px; }
+    .lb-header {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: #333;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 5px 0;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .lb-rank  { color: #333; width: 18px; text-align: right; flex-shrink: 0; }
+    .lb-name  { flex: 1; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lb-score { color: #fff; flex-shrink: 0; }
+    .lb-boma  { color: #333; font-size: 10px; flex-shrink: 0; }
+    .lb-row.lb-you .lb-name { color: #ffd600; }
+    .lb-row.lb-you .lb-rank { color: #ffd600; }
+    .lb-empty { font-size: 10px; color: #333; letter-spacing: 2px; text-align: center; padding: 10px 0; }
+
+    /* overlay result */
+    #ov-result { font-size: 13px; color: #666; letter-spacing: 2px; text-align: center; }
+
     /* score flash */
     #score-flash {
       position: fixed;
@@ -151,18 +198,35 @@
 <body>
 
 <div id="overlay">
-  <h1>BOMA</h1>
-  <div class="boma-demo">
-    <span style="color:#00e5ff">b</span><span style="color:#ffd600">o</span><span style="color:#ff44cc">m</span><span style="color:#66ff66">a</span>
+  <h1 id="ov-title">boma</h1>
+
+  <div id="ov-intro">
+    <div class="boma-demo" style="margin-bottom:10px">
+      <span style="color:#00e5ff">b</span><span style="color:#ffd600">o</span><span style="color:#ff44cc">m</span><span style="color:#66ff66">a</span>
+    </div>
+    <div class="sub">
+      forme a palavra <strong>boma</strong><br>
+      horizontal ou vertical<br>
+      para marcar <strong>100 pontos</strong>
+    </div>
   </div>
-  <div class="sub">
-    FORME A PALAVRA <strong>boma</strong><br>
-    HORIZONTAL OU VERTICAL<br>
-    PARA MARCAR <strong>100 PONTOS</strong>
+
+  <div id="ov-result"></div>
+
+  <div id="ov-name">
+    <input type="text" id="player-name" placeholder="seu nome" maxlength="20" autocomplete="off" spellcheck="false" />
+    <div id="name-error"></div>
   </div>
-  <button id="start-btn">INICIAR</button>
-  <div class="controls-list" style="text-align:center; color:#444; font-size:10px; letter-spacing:2px; line-height:2">
-    ← → MOVER &nbsp; ↑ GIRAR &nbsp; ↓ DESCER &nbsp; SPC DROP &nbsp; P PAUSA
+
+  <div id="ov-leaderboard">
+    <div class="lb-header">top 10</div>
+    <div id="lb-rows"></div>
+  </div>
+
+  <button id="start-btn">iniciar</button>
+
+  <div id="ov-controls" class="controls-list" style="text-align:center; color:#444; font-size:10px; letter-spacing:2px; line-height:2">
+    ← → mover &nbsp; ↑ girar &nbsp; ↓ descer &nbsp; spc drop &nbsp; p pausa
   </div>
 </div>
 
@@ -173,33 +237,33 @@
 
   <div id="sidebar">
     <div class="panel">
-      <h3>Score</h3>
+      <h3>score</h3>
       <div class="value" id="score-display">0</div>
     </div>
     <div class="panel">
-      <h3>BOMA</h3>
+      <h3>boma</h3>
       <div class="value" id="boma-display">0</div>
     </div>
     <div class="panel">
-      <h3>Nível</h3>
+      <h3>nível</h3>
       <div class="value" id="level-display">1</div>
     </div>
     <div class="panel">
-      <h3>Próxima</h3>
+      <h3>próxima</h3>
       <canvas id="next-canvas" width="150" height="108"></canvas>
     </div>
     <div class="panel legend">
-      <div class="legend-row"><span class="legend-dot" style="color:#00e5ff">b</span><span style="color:#333">━━━━</span><span style="color:#00e5ff;font-size:10px">B</span></div>
-      <div class="legend-row"><span class="legend-dot" style="color:#ffd600">o</span><span style="color:#333">━━━━</span><span style="color:#ffd600;font-size:10px">O</span></div>
-      <div class="legend-row"><span class="legend-dot" style="color:#ff44cc">m</span><span style="color:#333">━━━━</span><span style="color:#ff44cc;font-size:10px">M</span></div>
-      <div class="legend-row"><span class="legend-dot" style="color:#66ff66">a</span><span style="color:#333">━━━━</span><span style="color:#66ff66;font-size:10px">A</span></div>
+      <div class="legend-row"><span class="legend-dot" style="color:#00e5ff">b</span><span style="color:#333">━━━━</span><span style="color:#00e5ff;font-size:10px">b</span></div>
+      <div class="legend-row"><span class="legend-dot" style="color:#ffd600">o</span><span style="color:#333">━━━━</span><span style="color:#ffd600;font-size:10px">o</span></div>
+      <div class="legend-row"><span class="legend-dot" style="color:#ff44cc">m</span><span style="color:#333">━━━━</span><span style="color:#ff44cc;font-size:10px">m</span></div>
+      <div class="legend-row"><span class="legend-dot" style="color:#66ff66">a</span><span style="color:#333">━━━━</span><span style="color:#66ff66;font-size:10px">a</span></div>
     </div>
     <div class="controls-list">
       <span>← →</span> mover<br>
       <span>↑</span> girar<br>
       <span>↓</span> descer<br>
-      <span>SPC</span> hard drop<br>
-      <span>P</span> pausar
+      <span>spc</span> hard drop<br>
+      <span>p</span> pausar
     </div>
   </div>
 </div>
@@ -501,6 +565,12 @@ function showScoreFlash(text) {
 
 // ─── AFTER LOCK LOGIC ─────────────────────────────────────────────────────────
 function afterLock() {
+  // 1. Always clear full lines first — BEFORE boma detection.
+  //    Without this, a boma inside a full line removes only 4 of 10 cells
+  //    (via column gravity), leaving 6 cells that clearFullLines never sees.
+  clearFullLines();
+
+  // 2. Detect boma on the clean board
   const words = findBoma();
 
   if (words.length > 0) {
@@ -518,18 +588,17 @@ function afterLock() {
     showScoreFlash(`+${pts}`);
     drawBoard();
 
-    // After flash, clear and spawn next
+    // After flash, clear boma cells + re-check for any lines formed by gravity
     flashTimer = setTimeout(() => {
       flashTimer = null;
       flashCells.clear();
       clearBomaCells(words);
-      clearFullLines();
+      clearFullLines(); // gravity after boma-clear can create new full lines
       spawnNext();
       drawBoard();
     }, 600);
 
   } else {
-    clearFullLines();
     spawnNext();
   }
 }
@@ -541,7 +610,7 @@ function spawnNext() {
   if (collides(current, board)) {
     gameOver = true;
     drawBoard();
-    showOverlay('GAME OVER', `Score: ${score} · BOMA: ${bomaCount}×`, 'REINICIAR');
+    handleGameOver();
   }
 }
 
@@ -619,8 +688,8 @@ document.addEventListener('keydown', e => {
     case 'p':
     case 'P':
       paused = !paused;
-      if (paused) showOverlay('PAUSADO', '', 'CONTINUAR');
-      else        { hideOverlay(); lastTime = null; }
+      if (paused) showPaused();
+      else        { hideSections(); overlay.style.display = 'none'; lastTime = null; }
       break;
   }
 });
@@ -645,18 +714,99 @@ canvas.addEventListener('touchend', e => {
 }, { passive: false });
 
 // ─── OVERLAY ──────────────────────────────────────────────────────────────────
-const overlay  = document.getElementById('overlay');
-const startBtn = document.getElementById('start-btn');
+const overlay    = document.getElementById('overlay');
+const startBtn   = document.getElementById('start-btn');
+const nameInput  = document.getElementById('player-name');
+const nameError  = document.getElementById('name-error');
+const lbRows     = document.getElementById('lb-rows');
 
-function showOverlay(title, sub, btnLabel) {
-  overlay.querySelector('h1').textContent     = title;
-  overlay.querySelector('.sub').textContent   = sub;
-  overlay.querySelector('button').textContent = btnLabel;
+let playerName = '';
+
+function hideSections() {
+  document.getElementById('ov-intro').style.display      = 'none';
+  document.getElementById('ov-result').style.display     = 'none';
+  document.getElementById('ov-name').style.display       = 'none';
+  document.getElementById('ov-leaderboard').style.display= 'none';
+  document.getElementById('ov-controls').style.display   = 'none';
+  nameError.textContent = '';
+}
+
+function showStart() {
+  hideSections();
+  document.getElementById('ov-title').textContent        = 'boma';
+  document.getElementById('ov-intro').style.display      = 'block';
+  document.getElementById('ov-name').style.display       = 'block';
+  document.getElementById('ov-leaderboard').style.display= 'block';
+  document.getElementById('ov-controls').style.display   = 'block';
+  nameInput.value = playerName;
+  startBtn.textContent = 'iniciar';
+  overlay.style.display = 'flex';
+  setTimeout(() => nameInput.focus(), 50);
+}
+
+function showPaused() {
+  hideSections();
+  document.getElementById('ov-title').textContent = 'pausado';
+  startBtn.textContent = 'continuar';
   overlay.style.display = 'flex';
 }
 
-function hideOverlay() { overlay.style.display = 'none'; }
+function showGameOver() {
+  hideSections();
+  document.getElementById('ov-title').textContent       = 'game over';
+  const result = document.getElementById('ov-result');
+  result.innerHTML = `score: <strong style="color:#fff">${score}</strong> &nbsp; boma: <strong style="color:#ffd600">${bomaCount}×</strong>`;
+  result.style.display = 'block';
+  document.getElementById('ov-name').style.display        = 'block';
+  document.getElementById('ov-leaderboard').style.display = 'block';
+  nameInput.value = playerName;
+  startBtn.textContent = 'reiniciar';
+  overlay.style.display = 'flex';
+}
 
+// ─── LEADERBOARD ──────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderLeaderboard(scores) {
+  if (!scores.length) {
+    lbRows.innerHTML = '<div class="lb-empty">nenhuma pontuação ainda</div>';
+    return;
+  }
+  lbRows.innerHTML = scores.map((s, i) => `
+    <div class="lb-row${s.name === playerName ? ' lb-you' : ''}">
+      <span class="lb-rank">${i + 1}</span>
+      <span class="lb-name">${escHtml(s.name)}</span>
+      <span class="lb-score">${s.score}</span>
+      <span class="lb-boma">${s.boma}×</span>
+    </div>`).join('');
+}
+
+async function fetchScores() {
+  try {
+    const r = await fetch('/scores');
+    renderLeaderboard(await r.json());
+  } catch { renderLeaderboard([]); }
+}
+
+async function submitScore() {
+  try {
+    const r = await fetch('/scores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: playerName, score, boma: bomaCount }),
+    });
+    renderLeaderboard(await r.json());
+  } catch { /* offline — keep cached leaderboard */ }
+}
+
+async function handleGameOver() {
+  if (playerName) await submitScore();
+  showGameOver();
+}
+
+// ─── GAME START ───────────────────────────────────────────────────────────────
 function startGame() {
   board      = newBoard();
   score      = 0;
@@ -673,17 +823,43 @@ function startGame() {
   updateUI();
   drawNext();
   drawBoard();
-  hideOverlay();
+  overlay.style.display = 'none';
 }
 
 startBtn.addEventListener('click', () => {
+  const name = nameInput.value.trim();
+
+  // Paused → resume
+  if (paused) {
+    paused = false;
+    overlay.style.display = 'none';
+    lastTime = null;
+    return;
+  }
+
+  // Validate name
+  if (!name) {
+    nameError.textContent = 'informe seu nome';
+    nameInput.focus();
+    return;
+  }
+  playerName = name;
+  nameError.textContent = '';
+
   startGame();
   if (!loopStarted) { loopStarted = true; requestAnimationFrame(loop); }
 });
 
-// Initial render
+// Enter key in name input
+nameInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') startBtn.click();
+});
+
+// Initial render + fetch scores
 board = newBoard();
 drawBoard();
+fetchScores();
+showStart();
 </script>
 </body>
 </html>
