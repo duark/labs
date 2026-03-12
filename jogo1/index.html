@@ -444,15 +444,18 @@ function clearBomaCells(words) {
   }
 }
 
-// Clear completely filled lines (survival mechanic, no score)
+// Clear completely filled lines — returns count of lines cleared
 function clearFullLines() {
+  let cleared = 0;
   for (let r = ROWS - 1; r >= 0; r--) {
     if (board[r].every(c => c !== null)) {
       board.splice(r, 1);
       board.unshift(Array(COLS).fill(null));
       r++;
+      cleared++;
     }
   }
+  return cleared;
 }
 
 // ─── DRAW ─────────────────────────────────────────────────────────────────────
@@ -565,10 +568,13 @@ function showScoreFlash(text) {
 
 // ─── AFTER LOCK LOGIC ─────────────────────────────────────────────────────────
 function afterLock() {
-  // 1. Always clear full lines first — BEFORE boma detection.
-  //    Without this, a boma inside a full line removes only 4 of 10 cells
-  //    (via column gravity), leaving 6 cells that clearFullLines never sees.
-  clearFullLines();
+  // 1. Clear full lines first (before boma detection).
+  //    Award 1 point per line cleared.
+  const linesCleared = clearFullLines();
+  if (linesCleared > 0) {
+    score += linesCleared;
+    updateUI();
+  }
 
   // 2. Detect boma on the clean board
   const words = findBoma();
@@ -588,12 +594,16 @@ function afterLock() {
     showScoreFlash(`+${pts}`);
     drawBoard();
 
-    // After flash, clear boma cells + re-check for any lines formed by gravity
+    // After flash, clear boma cells + re-check for lines formed by gravity
     flashTimer = setTimeout(() => {
       flashTimer = null;
       flashCells.clear();
       clearBomaCells(words);
-      clearFullLines(); // gravity after boma-clear can create new full lines
+      const linesAfterBoma = clearFullLines();
+      if (linesAfterBoma > 0) {
+        score += linesAfterBoma;
+        updateUI();
+      }
       spawnNext();
       drawBoard();
     }, 600);
