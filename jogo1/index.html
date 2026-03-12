@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BOMA-TETRIS</title>
+  <style>
+    @font-face {
+      font-family: 'BomaMono';
+      src: url('BOMA-MONO.otf') format('opentype');
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #080808;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'BomaMono', monospace;
+      color: #fff;
+    }
+
+    #wrapper {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+    }
+
+    #game-canvas {
+      border: 2px solid #222;
+      display: block;
+      background: #0d0d0d;
+    }
+
+    #sidebar {
+      width: 150px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .panel {
+      border: 1px solid #222;
+      padding: 10px 12px;
+      background: #0d0d0d;
+    }
+
+    .panel h3 {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: #444;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .panel .value {
+      font-size: 26px;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+
+    #next-canvas {
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* letter legend */
+    .legend {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      letter-spacing: 1px;
+    }
+    .legend-row { display: flex; align-items: center; gap: 8px; }
+    .legend-dot { font-size: 16px; font-family: 'BomaMono', monospace; }
+
+    .controls-list {
+      font-size: 10px;
+      color: #444;
+      line-height: 2;
+      letter-spacing: 1px;
+    }
+    .controls-list span { color: #666; }
+
+    /* overlay */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 18px;
+      z-index: 10;
+    }
+
+    #overlay h1 {
+      font-size: 44px;
+      letter-spacing: 6px;
+    }
+
+    #overlay .sub {
+      font-size: 12px;
+      color: #666;
+      letter-spacing: 3px;
+      text-align: center;
+      max-width: 340px;
+      line-height: 1.8;
+    }
+
+    #overlay .boma-demo {
+      font-size: 28px;
+      letter-spacing: 8px;
+    }
+
+    #overlay button {
+      margin-top: 6px;
+      padding: 12px 36px;
+      background: transparent;
+      border: 1px solid #fff;
+      color: #fff;
+      font-family: 'BomaMono', monospace;
+      font-size: 13px;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    #overlay button:hover { background: #fff; color: #000; }
+
+    /* score flash */
+    #score-flash {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      letter-spacing: 4px;
+      color: #fff;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s;
+      z-index: 20;
+      text-shadow: 0 0 20px #fff;
+    }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <h1>BOMA</h1>
+  <div class="boma-demo">
+    <span style="color:#00e5ff">b</span><span style="color:#ffd600">o</span><span style="color:#ff44cc">m</span><span style="color:#66ff66">a</span>
+  </div>
+  <div class="sub">
+    FORME A PALAVRA <strong>boma</strong><br>
+    HORIZONTAL OU VERTICAL<br>
+    PARA MARCAR <strong>100 PONTOS</strong>
+  </div>
+  <button id="start-btn">INICIAR</button>
+  <div class="controls-list" style="text-align:center; color:#444; font-size:10px; letter-spacing:2px; line-height:2">
+    ← → MOVER &nbsp; ↑ GIRAR &nbsp; ↓ DESCER &nbsp; SPC DROP &nbsp; P PAUSA
+  </div>
+</div>
+
+<div id="score-flash" id="score-flash">+100</div>
+
+<div id="wrapper">
+  <canvas id="game-canvas"></canvas>
+
+  <div id="sidebar">
+    <div class="panel">
+      <h3>Score</h3>
+      <div class="value" id="score-display">0</div>
+    </div>
+    <div class="panel">
+      <h3>BOMA</h3>
+      <div class="value" id="boma-display">0</div>
+    </div>
+    <div class="panel">
+      <h3>Nível</h3>
+      <div class="value" id="level-display">1</div>
+    </div>
+    <div class="panel">
+      <h3>Próxima</h3>
+      <canvas id="next-canvas" width="150" height="108"></canvas>
+    </div>
+    <div class="panel legend">
+      <div class="legend-row"><span class="legend-dot" style="color:#00e5ff">b</span><span style="color:#333">━━━━</span><span style="color:#00e5ff;font-size:10px">B</span></div>
+      <div class="legend-row"><span class="legend-dot" style="color:#ffd600">o</span><span style="color:#333">━━━━</span><span style="color:#ffd600;font-size:10px">O</span></div>
+      <div class="legend-row"><span class="legend-dot" style="color:#ff44cc">m</span><span style="color:#333">━━━━</span><span style="color:#ff44cc;font-size:10px">M</span></div>
+      <div class="legend-row"><span class="legend-dot" style="color:#66ff66">a</span><span style="color:#333">━━━━</span><span style="color:#66ff66;font-size:10px">A</span></div>
+    </div>
+    <div class="controls-list">
+      <span>← →</span> mover<br>
+      <span>↑</span> girar<br>
+      <span>↓</span> descer<br>
+      <span>SPC</span> hard drop<br>
+      <span>P</span> pausar
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const COLS = 10;
+const ROWS = 20;
+const CELL = 34;
+
+// Letter colors
+const LETTER_COLOR = {
+  b: '#00e5ff',
+  o: '#ffd600',
+  m: '#ff44cc',
+  a: '#66ff66',
+};
+const LETTERS = ['b','o','m','a'];
+const WORD = 'boma';
+
+// Piece shapes (classic Tetris)
+const PIECES = {
+  I: [[1,1,1,1]],
+  O: [[1,1],[1,1]],
+  T: [[0,1,0],[1,1,1]],
+  S: [[0,1,1],[1,1,0]],
+  Z: [[1,1,0],[0,1,1]],
+  J: [[1,0,0],[1,1,1]],
+  L: [[0,0,1],[1,1,1]],
+};
+const PIECE_KEYS = Object.keys(PIECES);
+
+// Speed (ms per drop) per level
+const SPEEDS = [850,720,600,500,400,320,250,190,140,100];
+
+// ─── CANVAS ───────────────────────────────────────────────────────────────────
+const canvas  = document.getElementById('game-canvas');
+canvas.width  = COLS * CELL;
+canvas.height = ROWS * CELL;
+const ctx = canvas.getContext('2d');
+
+const nextCanvas = document.getElementById('next-canvas');
+const nctx = nextCanvas.getContext('2d');
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let board;       // ROWS×COLS of null | {letter, color}
+let current;     // active piece
+let nextPiece;   // queued piece
+let score, bomaCount, level;
+let lastTime, dropAccum, paused, gameOver;
+let flashCells = new Set();   // "r,c" keys currently flashing (boma found)
+let flashTimer = null;        // pending flash clear timeout
+let loopStarted = false;
+
+// ─── BOARD ────────────────────────────────────────────────────────────────────
+function newBoard() {
+  return Array.from({length: ROWS}, () => Array(COLS).fill(null));
+}
+
+// ─── PIECE ────────────────────────────────────────────────────────────────────
+function randomLetter() {
+  return LETTERS[Math.floor(Math.random() * LETTERS.length)];
+}
+
+function createPiece() {
+  const key   = PIECE_KEYS[Math.floor(Math.random() * PIECE_KEYS.length)];
+  const shape = PIECES[key].map(r => [...r]);
+  // assign random letter to each filled cell
+  const letters = shape.map(row => row.map(cell => cell ? randomLetter() : null));
+  return {
+    shape,
+    letters,
+    x: Math.floor((COLS - shape[0].length) / 2),
+    y: 0,
+  };
+}
+
+// Rotate shape and letters together (clockwise)
+function rotatePiece(piece) {
+  const rows = piece.shape.length;
+  const cols = piece.shape[0].length;
+  const newShape   = [];
+  const newLetters = [];
+  for (let c = 0; c < cols; c++) {
+    newShape.push([]);
+    newLetters.push([]);
+    for (let r = rows - 1; r >= 0; r--) {
+      newShape[c].push(piece.shape[r][c]);
+      newLetters[c].push(piece.letters[r][c]);
+    }
+  }
+  return { ...piece, shape: newShape, letters: newLetters };
+}
+
+// ─── COLLISION ────────────────────────────────────────────────────────────────
+function collides(piece, board, dx = 0, dy = 0) {
+  for (let r = 0; r < piece.shape.length; r++) {
+    for (let c = 0; c < piece.shape[r].length; c++) {
+      if (!piece.shape[r][c]) continue;
+      const nx = piece.x + c + dx;
+      const ny = piece.y + r + dy;
+      if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+      if (ny >= 0 && board[ny][nx]) return true;
+    }
+  }
+  return false;
+}
+
+// ─── LOCK ─────────────────────────────────────────────────────────────────────
+function lockPiece(piece) {
+  for (let r = 0; r < piece.shape.length; r++) {
+    for (let c = 0; c < piece.shape[r].length; c++) {
+      const letter = piece.letters[r][c];
+      if (!letter) continue;
+      const ny = piece.y + r;
+      const nx = piece.x + c;
+      if (ny < 0) { gameOver = true; return; }
+      board[ny][nx] = { letter, color: LETTER_COLOR[letter] };
+    }
+  }
+}
+
+// ─── BOMA DETECTION ───────────────────────────────────────────────────────────
+// Returns array of arrays of {r,c} positions, one array per found word
+function findBoma() {
+  const found = [];
+
+  // Horizontal
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c <= COLS - 4; c++) {
+      let match = true;
+      for (let i = 0; i < 4; i++) {
+        const cell = board[r][c + i];
+        if (!cell || cell.letter !== WORD[i]) { match = false; break; }
+      }
+      if (match) {
+        found.push([{r, c}, {r, c: c+1}, {r, c: c+2}, {r, c: c+3}]);
+        c += 3; // skip overlapping (non-overlapping)
+      }
+    }
+  }
+
+  // Vertical
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r <= ROWS - 4; r++) {
+      let match = true;
+      for (let i = 0; i < 4; i++) {
+        const cell = board[r + i][c];
+        if (!cell || cell.letter !== WORD[i]) { match = false; break; }
+      }
+      if (match) {
+        found.push([{r, c}, {r: r+1, c}, {r: r+2, c}, {r: r+3, c}]);
+        r += 3;
+      }
+    }
+  }
+
+  return found;
+}
+
+function clearBomaCells(words) {
+  for (const word of words) {
+    for (const {r, c} of word) {
+      board[r][c] = null;
+    }
+  }
+  // gravity: for each column, drop cells down to fill gaps
+  for (let c = 0; c < COLS; c++) {
+    let writeRow = ROWS - 1;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (board[r][c]) {
+        board[writeRow][c] = board[r][c];
+        if (writeRow !== r) board[r][c] = null;
+        writeRow--;
+      }
+    }
+    while (writeRow >= 0) { board[writeRow][c] = null; writeRow--; }
+  }
+}
+
+// Clear completely filled lines (survival mechanic, no score)
+function clearFullLines() {
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (board[r].every(c => c !== null)) {
+      board.splice(r, 1);
+      board.unshift(Array(COLS).fill(null));
+      r++;
+    }
+  }
+}
+
+// ─── DRAW ─────────────────────────────────────────────────────────────────────
+function setFont(context, size) {
+  context.font = `bold ${size}px BomaMono, monospace`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+}
+
+function drawCell(context, col, row, letter, alpha = 1, cellSize = CELL, flash = false) {
+  const cx = col * cellSize + cellSize / 2;
+  const cy = row * cellSize + cellSize / 2;
+  const color = LETTER_COLOR[letter] || '#fff';
+
+  context.globalAlpha = alpha;
+
+  if (flash) {
+    // bright flash bg
+    context.fillStyle = color;
+    context.fillRect(col * cellSize + 1, row * cellSize + 1, cellSize - 2, cellSize - 2);
+    context.fillStyle = '#000';
+  } else {
+    context.fillStyle = color;
+  }
+
+  setFont(context, cellSize - 6);
+  context.fillText(letter, cx, cy + 1);
+  context.globalAlpha = 1;
+}
+
+function drawBoard() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Grid
+  ctx.strokeStyle = '#141414';
+  ctx.lineWidth = 1;
+  for (let r = 0; r <= ROWS; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * CELL); ctx.lineTo(canvas.width, r * CELL); ctx.stroke();
+  }
+  for (let c = 0; c <= COLS; c++) {
+    ctx.beginPath(); ctx.moveTo(c * CELL, 0); ctx.lineTo(c * CELL, canvas.height); ctx.stroke();
+  }
+
+  // Locked cells
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = board[r][c];
+      if (!cell) continue;
+      const isFlashing = flashCells.has(`${r},${c}`);
+      drawCell(ctx, c, r, cell.letter, 1, CELL, isFlashing);
+    }
+  }
+
+  if (!current || flashTimer) return; // don't draw active piece during flash
+
+  // Ghost
+  let ghost = { ...current };
+  while (!collides(ghost, board, 0, 1)) ghost.y++;
+  if (ghost.y !== current.y) {
+    for (let r = 0; r < current.shape.length; r++) {
+      for (let c = 0; c < current.shape[r].length; c++) {
+        const letter = current.letters[r][c];
+        if (!letter) continue;
+        drawCell(ctx, ghost.x + c, ghost.y + r, letter, 0.15);
+      }
+    }
+  }
+
+  // Active piece
+  for (let r = 0; r < current.shape.length; r++) {
+    for (let c = 0; c < current.shape[r].length; c++) {
+      const letter = current.letters[r][c];
+      if (!letter) continue;
+      drawCell(ctx, current.x + c, current.y + r, letter, 1);
+    }
+  }
+}
+
+function drawNext() {
+  nctx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+  if (!nextPiece) return;
+  const cellSz = 28;
+  const offX = Math.floor((nextCanvas.width  / cellSz - nextPiece.shape[0].length) / 2);
+  const offY = Math.floor((nextCanvas.height / cellSz - nextPiece.shape.length)    / 2);
+  for (let r = 0; r < nextPiece.shape.length; r++) {
+    for (let c = 0; c < nextPiece.shape[r].length; c++) {
+      const letter = nextPiece.letters[r][c];
+      if (!letter) continue;
+      drawCell(nctx, offX + c, offY + r, letter, 1, cellSz);
+    }
+  }
+}
+
+function updateUI() {
+  document.getElementById('score-display').textContent = score;
+  document.getElementById('boma-display').textContent  = bomaCount;
+  document.getElementById('level-display').textContent = level;
+}
+
+// ─── SCORE FLASH ──────────────────────────────────────────────────────────────
+const scoreFlashEl = document.getElementById('score-flash');
+let scoreFlashTO = null;
+
+function showScoreFlash(text) {
+  scoreFlashEl.textContent = text;
+  scoreFlashEl.style.opacity = '1';
+  clearTimeout(scoreFlashTO);
+  scoreFlashTO = setTimeout(() => { scoreFlashEl.style.opacity = '0'; }, 700);
+}
+
+// ─── AFTER LOCK LOGIC ─────────────────────────────────────────────────────────
+function afterLock() {
+  const words = findBoma();
+
+  if (words.length > 0) {
+    // Mark flashing cells
+    flashCells.clear();
+    for (const word of words) {
+      for (const {r, c} of word) flashCells.add(`${r},${c}`);
+    }
+
+    const pts = words.length * 100;
+    score     += pts;
+    bomaCount += words.length;
+    level      = Math.floor(bomaCount / 5) + 1;
+    updateUI();
+    showScoreFlash(`+${pts}`);
+    drawBoard();
+
+    // After flash, clear and spawn next
+    flashTimer = setTimeout(() => {
+      flashTimer = null;
+      flashCells.clear();
+      clearBomaCells(words);
+      clearFullLines();
+      spawnNext();
+      drawBoard();
+    }, 600);
+
+  } else {
+    clearFullLines();
+    spawnNext();
+  }
+}
+
+function spawnNext() {
+  current   = nextPiece;
+  nextPiece = createPiece();
+  drawNext();
+  if (collides(current, board)) {
+    gameOver = true;
+    drawBoard();
+    showOverlay('GAME OVER', `Score: ${score} · BOMA: ${bomaCount}×`, 'REINICIAR');
+  }
+}
+
+// ─── DROP ─────────────────────────────────────────────────────────────────────
+function drop() {
+  if (paused || gameOver || flashTimer) return;
+  if (!collides(current, board, 0, 1)) {
+    current.y++;
+  } else {
+    lockPiece(current);
+    if (!gameOver) afterLock();
+  }
+  drawBoard();
+}
+
+function hardDrop() {
+  if (paused || gameOver || flashTimer) return;
+  while (!collides(current, board, 0, 1)) current.y++;
+  lockPiece(current);
+  if (!gameOver) afterLock();
+  dropAccum = 0;
+  drawBoard();
+}
+
+// ─── LOOP ─────────────────────────────────────────────────────────────────────
+function getSpeed() {
+  return SPEEDS[Math.min(level - 1, SPEEDS.length - 1)];
+}
+
+function loop(ts) {
+  if (!lastTime) lastTime = ts;
+  const dt = ts - lastTime;
+  lastTime = ts;
+
+  if (!paused && !gameOver && !flashTimer) {
+    dropAccum += dt;
+    if (dropAccum >= getSpeed()) {
+      drop();
+      dropAccum = 0;
+    }
+  }
+
+  drawBoard();
+  requestAnimationFrame(loop);
+}
+
+// ─── INPUT ────────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  if (paused && e.key !== 'p' && e.key !== 'P') return;
+  if (flashTimer && e.key !== 'p' && e.key !== 'P') return;
+
+  switch (e.key) {
+    case 'ArrowLeft':
+      if (!collides(current, board, -1, 0)) { current.x--; drawBoard(); }
+      break;
+    case 'ArrowRight':
+      if (!collides(current, board, 1, 0)) { current.x++; drawBoard(); }
+      break;
+    case 'ArrowDown':
+      drop(); dropAccum = 0;
+      break;
+    case 'ArrowUp': {
+      const rotated = rotatePiece(current);
+      if      (!collides(rotated, board))       { current = rotated; }
+      else if (!collides(rotated, board,  1, 0)) { current = { ...rotated, x: rotated.x + 1 }; }
+      else if (!collides(rotated, board, -1, 0)) { current = { ...rotated, x: rotated.x - 1 }; }
+      drawBoard();
+      break;
+    }
+    case ' ':
+      e.preventDefault();
+      hardDrop();
+      break;
+    case 'p':
+    case 'P':
+      paused = !paused;
+      if (paused) showOverlay('PAUSADO', '', 'CONTINUAR');
+      else        { hideOverlay(); lastTime = null; }
+      break;
+  }
+});
+
+// Touch
+let tx = 0, ty = 0;
+canvas.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - tx;
+  const dy = e.changedTouches[0].clientY - ty;
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+  if (adx < 12 && ady < 12) {
+    const rotated = rotatePiece(current);
+    if (!collides(rotated, board)) { current = rotated; drawBoard(); }
+  } else if (adx > ady) {
+    const dir = dx > 0 ? 1 : -1;
+    if (!collides(current, board, dir, 0)) { current.x += dir; drawBoard(); }
+  } else if (dy > 40) {
+    hardDrop();
+  }
+  e.preventDefault();
+}, { passive: false });
+
+// ─── OVERLAY ──────────────────────────────────────────────────────────────────
+const overlay  = document.getElementById('overlay');
+const startBtn = document.getElementById('start-btn');
+
+function showOverlay(title, sub, btnLabel) {
+  overlay.querySelector('h1').textContent     = title;
+  overlay.querySelector('.sub').textContent   = sub;
+  overlay.querySelector('button').textContent = btnLabel;
+  overlay.style.display = 'flex';
+}
+
+function hideOverlay() { overlay.style.display = 'none'; }
+
+function startGame() {
+  board      = newBoard();
+  score      = 0;
+  bomaCount  = 0;
+  level      = 1;
+  paused     = false;
+  gameOver   = false;
+  dropAccum  = 0;
+  lastTime   = null;
+  flashCells.clear();
+  if (flashTimer) { clearTimeout(flashTimer); flashTimer = null; }
+  nextPiece  = createPiece();
+  current    = createPiece();
+  updateUI();
+  drawNext();
+  drawBoard();
+  hideOverlay();
+}
+
+startBtn.addEventListener('click', () => {
+  startGame();
+  if (!loopStarted) { loopStarted = true; requestAnimationFrame(loop); }
+});
+
+// Initial render
+board = newBoard();
+drawBoard();
+</script>
+</body>
+</html>
