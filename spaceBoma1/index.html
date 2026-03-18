@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>boma invaders</title>
+  <style>
+    @font-face {
+      font-family: 'BOMA-MONO';
+      src: url('BOMA-MONO.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --red: #ff0000;
+      --red-dim: #cc0000;
+      --red-glow: rgba(255, 0, 0, 0.4);
+      --bg: #000000;
+      --text: #ff0000;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: 'BOMA-MONO', monospace;
+      color: var(--text);
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      z-index: 10;
+      transition: opacity 0.4s;
+    }
+    .screen.hidden { opacity: 0; pointer-events: none; }
+
+    /* scanlines overlay */
+    #scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 100;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+    }
+
+    /* ── INTRO ── */
+    #intro-screen {
+      gap: 3rem;
+    }
+    .game-title {
+      font-size: clamp(2.5rem, 8vw, 5rem);
+      letter-spacing: 0.08em;
+      text-shadow: 0 0 20px var(--red), 0 0 60px var(--red-glow);
+      animation: titlePulse 2s ease-in-out infinite;
+      text-align: center;
+      line-height: 1.1;
+    }
+    .game-subtitle {
+      font-size: clamp(0.6rem, 2vw, 0.85rem);
+      letter-spacing: 0.3em;
+      opacity: 0.5;
+      text-transform: none;
+    }
+    @keyframes titlePulse {
+      0%, 100% { text-shadow: 0 0 20px var(--red), 0 0 40px var(--red-glow); }
+      50%       { text-shadow: 0 0 30px var(--red), 0 0 80px var(--red-glow), 0 0 120px rgba(255,0,0,0.2); }
+    }
+
+    .btn {
+      font-family: 'BOMA-MONO', monospace;
+      font-size: clamp(0.9rem, 3vw, 1.1rem);
+      letter-spacing: 0.2em;
+      color: #000;
+      background: var(--red);
+      border: none;
+      padding: 0.75em 2.5em;
+      cursor: pointer;
+      text-transform: none;
+      position: relative;
+      transition: transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 0 20px var(--red-glow), 0 0 40px rgba(255,0,0,0.2);
+    }
+    .btn:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 30px var(--red), 0 0 60px var(--red-glow);
+    }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-ghost {
+      color: var(--red);
+      background: transparent;
+      border: 1px solid var(--red-dim);
+      box-shadow: none;
+    }
+    .btn-ghost:hover {
+      background: rgba(255,0,0,0.08);
+      box-shadow: 0 0 15px var(--red-glow);
+    }
+
+    .controls-hint {
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      opacity: 0.35;
+      line-height: 2;
+      text-align: center;
+    }
+
+    /* ── HUD ── */
+    #hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      z-index: 50;
+      pointer-events: none;
+    }
+    #hud.hidden { display: none; }
+
+    .hud-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .hud-label {
+      font-size: 0.55rem;
+      letter-spacing: 0.25em;
+      opacity: 0.4;
+    }
+    .hud-value {
+      font-size: clamp(1rem, 3vw, 1.4rem);
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 10px var(--red-glow);
+      transition: color 0.2s;
+    }
+    .hud-value.flash {
+      color: #fff;
+      text-shadow: 0 0 20px #fff, 0 0 40px var(--red);
+    }
+
+    .hud-center {
+      text-align: center;
+      align-items: center;
+    }
+
+    #combo-display {
+      transition: transform 0.15s, opacity 0.3s;
+    }
+    #combo-display.combo-bump {
+      transform: scale(1.3);
+    }
+
+    #lives-display {
+      display: flex;
+      gap: 0.4rem;
+      font-size: 1.1rem;
+    }
+    .life-icon {
+      display: inline-block;
+      transition: opacity 0.3s;
+    }
+    .life-icon.lost { opacity: 0.15; }
+
+    /* mute btn */
+    #mute-btn {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      z-index: 200;
+      background: transparent;
+      border: 1px solid rgba(255,0,0,0.3);
+      color: var(--red);
+      font-family: 'BOMA-MONO', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.15em;
+      padding: 0.4em 0.8em;
+      cursor: pointer;
+      pointer-events: all;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+    }
+    #mute-btn:hover { opacity: 1; }
+
+    /* ── SPEECH BUBBLE ── */
+    #speech-bubble {
+      position: fixed;
+      bottom: 110px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 60;
+      pointer-events: none;
+      font-size: clamp(0.65rem, 2vw, 0.85rem);
+      letter-spacing: 0.1em;
+      color: #000;
+      background: var(--red);
+      padding: 0.5em 1.2em;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      transform: translateX(-50%) translateY(8px);
+      text-shadow: none;
+    }
+    #speech-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 8px solid transparent;
+      border-top-color: var(--red);
+      border-bottom: none;
+    }
+    #speech-bubble.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── GAME OVER ── */
+    #gameover-screen {
+      gap: 1.5rem;
+    }
+    .go-title {
+      font-size: clamp(2rem, 7vw, 4rem);
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 20px var(--red);
+    }
+    .go-score-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.3em;
+      opacity: 0.4;
+    }
+    .go-score-value {
+      font-size: clamp(1.5rem, 5vw, 2.5rem);
+      letter-spacing: 0.1em;
+      text-shadow: 0 0 15px var(--red-glow);
+    }
+    .go-hi { color: #fff; text-shadow: 0 0 20px var(--red); }
+
+    /* ── CANVAS ── */
+    #game-canvas {
+      display: block;
+      position: absolute;
+      inset: 0;
+    }
+
+    /* ── GLITCH ── */
+    @keyframes glitch1 {
+      0%   { clip-path: inset(20% 0 60% 0); transform: translate(-4px, 0); }
+      25%  { clip-path: inset(50% 0 20% 0); transform: translate(4px, 0); }
+      50%  { clip-path: inset(10% 0 80% 0); transform: translate(-2px, 0); }
+      75%  { clip-path: inset(70% 0 5%  0); transform: translate(3px, 0); }
+      100% { clip-path: inset(30% 0 40% 0); transform: translate(0, 0); }
+    }
+    @keyframes glitch2 {
+      0%   { clip-path: inset(60% 0 10% 0); transform: translate(3px, 0); color: #0ff; }
+      50%  { clip-path: inset(30% 0 50% 0); transform: translate(-3px, 0); color: var(--red); }
+      100% { clip-path: inset(80% 0 5%  0); transform: translate(0, 0); }
+    }
+    .glitch-wrap {
+      position: relative;
+    }
+    .glitch-wrap.glitching::before,
+    .glitch-wrap.glitching::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      text-shadow: none;
+    }
+    .glitch-wrap.glitching::before {
+      animation: glitch1 0.15s steps(1) forwards;
+      color: #0ff;
+    }
+    .glitch-wrap.glitching::after {
+      animation: glitch2 0.15s steps(1) forwards;
+      color: var(--red);
+    }
+
+    /* mobile controls */
+    #mobile-controls {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      display: none;
+      justify-content: space-between;
+      align-items: flex-end;
+      padding: 1rem 1.5rem 2rem;
+      z-index: 80;
+      pointer-events: none;
+    }
+    #mobile-controls.active { display: flex; }
+    .mob-btn {
+      pointer-events: all;
+      width: 70px; height: 70px;
+      border: 1px solid rgba(255,0,0,0.4);
+      background: rgba(255,0,0,0.08);
+      color: var(--red);
+      font-family: 'BOMA-MONO', monospace;
+      font-size: 1.4rem;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: pointer;
+      border-radius: 2px;
+      transition: background 0.1s;
+    }
+    .mob-btn:active { background: rgba(255,0,0,0.25); }
+    .mob-arrows { display: flex; gap: 0.5rem; }
+    #mob-fire {
+      width: 90px; height: 90px;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      border-color: var(--red);
+      background: rgba(255,0,0,0.12);
+    }
+  </style>
+</head>
+<body>
+<div id="scanlines"></div>
+
+<!-- ── INTRO SCREEN ── -->
+<div id="intro-screen" class="screen">
+  <div>
+    <div class="game-title glitch-wrap" id="intro-title" data-text="boma invaders">boma invaders</div>
+    <div class="game-subtitle">// space combat // v1.0 //</div>
+  </div>
+  <button class="btn" id="start-btn">start game</button>
+  <div class="controls-hint">
+    ← → &nbsp; move &nbsp;&nbsp; space &nbsp; shoot<br>
+    desktop &amp; mobile supported
+  </div>
+</div>
+
+<!-- ── HUD ── -->
+<div id="hud" class="hidden">
+  <div class="hud-group">
+    <div class="hud-label">score</div>
+    <div class="hud-value" id="score-display">0</div>
+  </div>
+  <div class="hud-group hud-center" id="combo-display">
+    <div class="hud-label">combo</div>
+    <div class="hud-value" id="combo-value">x1</div>
+  </div>
+  <div class="hud-group" style="align-items:flex-end">
+    <div class="hud-label">lives</div>
+    <div id="lives-display"></div>
+  </div>
+</div>
+
+<!-- ── GAME OVER SCREEN ── -->
+<div id="gameover-screen" class="screen hidden">
+  <div class="go-title glitch-wrap" id="go-title" data-text="game over">game over</div>
+  <div>
+    <div class="go-score-label">final score</div>
+    <div class="go-score-value" id="final-score">0</div>
+  </div>
+  <div id="hi-score-notice" class="go-hi" style="display:none; font-size:0.8rem; letter-spacing:0.2em;">✦ new high score ✦</div>
+  <button class="btn" id="restart-btn">play again</button>
+  <button class="btn btn-ghost" id="menu-btn">main menu</button>
+</div>
+
+<!-- ── CANVAS ── -->
+<canvas id="game-canvas"></canvas>
+
+<!-- ── SPEECH BUBBLE ── -->
+<div id="speech-bubble"></div>
+
+<!-- ── MUTE ── -->
+<button id="mute-btn">♪ sound</button>
+
+<!-- ── MOBILE CONTROLS ── -->
+<div id="mobile-controls" id="mobile-controls">
+  <div class="mob-arrows">
+    <div class="mob-btn" id="mob-left">◀</div>
+    <div class="mob-btn" id="mob-right">▶</div>
+  </div>
+  <div class="mob-btn" id="mob-fire">fire</div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════
+   BOMA INVADERS — main game script
+   ════════════════════════════════════════════════ */
+
+// ── AUDIO ENGINE ────────────────────────────────
+const Audio = (() => {
+  let ctx = null, muted = false;
+  function getCtx() {
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  }
+  function playTone(freq, type, dur, vol = 0.15, ramp = true) {
+    if (muted) return;
+    try {
+      const c = getCtx();
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.connect(gain); gain.connect(c.destination);
+      osc.type = type; osc.frequency.setValueAtTime(freq, c.currentTime);
+      gain.gain.setValueAtTime(vol, c.currentTime);
+      if (ramp) gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+      osc.start(); osc.stop(c.currentTime + dur);
+    } catch(e) {}
+  }
+  function shoot() {
+    if (muted) return;
+    try {
+      const c = getCtx();
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.connect(gain); gain.connect(c.destination);
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, c.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(220, c.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.08, c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.08);
+      osc.start(); osc.stop(c.currentTime + 0.1);
+    } catch(e) {}
+  }
+  function explode() {
+    if (muted) return;
+    try {
+      const c = getCtx();
+      const buf = c.createBuffer(1, c.sampleRate * 0.2, c.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      const gain = c.createGain();
+      const filter = c.createBiquadFilter();
+      filter.type = 'bandpass'; filter.frequency.value = 400; filter.Q.value = 0.5;
+      src.connect(filter); filter.connect(gain); gain.connect(c.destination);
+      gain.gain.setValueAtTime(0.3, c.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.2);
+      src.start(); src.stop(c.currentTime + 0.2);
+    } catch(e) {}
+  }
+  function comboUp() {
+    if (muted) return;
+    try {
+      const c = getCtx();
+      [523, 659, 784].forEach((f, i) => {
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.connect(gain); gain.connect(c.destination);
+        osc.type = 'sine'; osc.frequency.value = f;
+        const t = c.currentTime + i * 0.07;
+        gain.gain.setValueAtTime(0.1, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.start(t); osc.stop(t + 0.12);
+      });
+    } catch(e) {}
+  }
+  function playerHit() { playTone(110, 'sawtooth', 0.3, 0.2); }
+  function gameOver()  { playTone(80, 'sawtooth', 0.8, 0.25); }
+  function setMute(v) { muted = v; }
+  function isMuted()  { return muted; }
+  return { shoot, explode, comboUp, playerHit, gameOver, setMute, isMuted };
+})();
+
+// ── CONSTANTS ────────────────────────────────────
+const PLAYER_SPEED   = 5;
+const BULLET_SPEED   = 10;
+const MAX_BULLETS    = 4;
+const MAX_LIVES      = 3;
+const INVADER_ROWS   = 4;
+const INVADER_COLS   = 10;
+const BASE_POINTS    = [40, 30, 20, 10]; // row 0 = top (worth more)
+const SHOOT_COOLDOWN = 300; // ms
+const COMBO_PHRASES  = [
+  "hell yeah boma",
+  "we are boma",
+  "c'mon mitera",
+  "bora preto",
+  "boma forever",
+  "vai com tudo",
+  "isso aí mano",
+  "destruindo tudo",
+];
+
+// ── STATE ────────────────────────────────────────
+let canvas, ctx2d;
+let W, H;
+let gameState = 'intro'; // intro | playing | gameover
+let animId;
+
+// player
+let player = {};
+// invader grid
+let invaders = [];
+let invaderDir = 1;
+let invaderStepTimer = 0;
+let invaderStepInterval = 800;
+let invaderDropAmount = 20;
+let invaderSpeedFactor = 1;
+
+// projectiles
+let bullets = [];
+let enemyBullets = [];
+let lastShot = 0;
+
+// particles
+let particles = [];
+
+// score / combo
+let score = 0;
+let combo = 1;
+let consecutiveHits = 0;
+let hiScore = +localStorage.getItem('bomaHi') || 0;
+
+// difficulty
+let wave = 1;
+let diffTimer = 0;
+
+// screen shake
+let shakeAmt = 0;
+
+// stars
+let stars = [];
+
+// speech bubble
+let bubbleTimer = null;
+
+// mobile input state
+let mobileLeft = false, mobileRight = false, mobileFire = false, mobileFirePrev = false;
+
+// ── INIT ─────────────────────────────────────────
+function initCanvas() {
+  canvas = document.getElementById('game-canvas');
+  ctx2d = canvas.getContext('2d');
+  resize();
+  window.addEventListener('resize', resize);
+}
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  if (gameState === 'playing') {
+    player.y = H - 80;
+    if (player.x < player.w / 2) player.x = player.w / 2;
+    if (player.x > W - player.w / 2) player.x = W - player.w / 2;
+  }
+}
+
+// ── STARS BACKGROUND ─────────────────────────────
+function initStars() {
+  stars = [];
+  const count = Math.floor((W * H) / 4000);
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.5 + 0.3,
+      speed: Math.random() * 0.4 + 0.1,
+      alpha: Math.random() * 0.6 + 0.2,
+    });
+  }
+}
+function updateStars() {
+  for (const s of stars) {
+    s.y += s.speed;
+    if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
+  }
+}
+function drawStars() {
+  for (const s of stars) {
+    ctx2d.globalAlpha = s.alpha;
+    ctx2d.fillStyle = '#ff3333';
+    ctx2d.beginPath();
+    ctx2d.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx2d.fill();
+  }
+  ctx2d.globalAlpha = 1;
+}
+
+// ── PLAYER ───────────────────────────────────────
+function initPlayer() {
+  player = {
+    x: W / 2,
+    y: H - 80,
+    w: 44,
+    h: 28,
+    vx: 0,
+    alive: true,
+    invincible: 0,
+  };
+}
+
+function drawPlayer() {
+  if (!player.alive) return;
+  if (player.invincible > 0 && Math.floor(Date.now() / 80) % 2 === 0) return;
+
+  const { x, y, w, h } = player;
+  ctx2d.save();
+
+  // glow
+  ctx2d.shadowColor = '#ff0000';
+  ctx2d.shadowBlur = 18;
+
+  ctx2d.fillStyle = '#ff0000';
+
+  // ship body — pixelated silhouette
+  // Drawn as a series of rect blocks for a "type character" feel
+  const bw = 4; // block size
+  const blocks = [
+    // col offsets from center, row offsets from center (bw units)
+    // tip
+    [0, -3], [-1,-3], [1,-3],
+    // upper body
+    [-2,-2],[0,-2],[2,-2],[-1,-2],[1,-2],
+    // mid
+    [-3,-1],[-2,-1],[-1,-1],[0,-1],[1,-1],[2,-1],[3,-1],
+    // wide base
+    [-4,0],[-3,0],[-2,0],[-1,0],[0,0],[1,0],[2,0],[3,0],[4,0],
+    // wings
+    [-5,1],[-4,1],[-3,1],[-1,1],[0,1],[1,1],[3,1],[4,1],[5,1],
+    [-5,2],[-4,2],[4,2],[5,2],
+  ];
+
+  for (const [cx, cy] of blocks) {
+    ctx2d.fillRect(
+      x + cx * bw - bw / 2,
+      y + cy * bw - bw / 2,
+      bw - 1,
+      bw - 1
+    );
+  }
+
+  // engine glow
+  ctx2d.shadowColor = '#ff4400';
+  ctx2d.shadowBlur = 10;
+  ctx2d.fillStyle = '#ff6600';
+  if (Math.random() > 0.4) {
+    ctx2d.fillRect(x - 4, y + 3 * bw - 2, 3, 4);
+    ctx2d.fillRect(x + 2, y + 3 * bw - 2, 3, 4);
+  }
+
+  ctx2d.restore();
+}
+
+// ── INVADERS ─────────────────────────────────────
+function initInvaders() {
+  invaders = [];
+  const cellW = Math.min(50, (W * 0.8) / INVADER_COLS);
+  const cellH = 44;
+  const startX = (W - cellW * INVADER_COLS) / 2 + cellW / 2;
+  const startY = 90;
+
+  for (let r = 0; r < INVADER_ROWS; r++) {
+    for (let c = 0; c < INVADER_COLS; c++) {
+      invaders.push({
+        x: startX + c * cellW,
+        y: startY + r * cellH,
+        row: r,
+        alive: true,
+        frame: 0,
+        animTimer: 0,
+        cellW,
+        cellH,
+      });
+    }
+  }
+
+  invaderDir = 1;
+  invaderStepTimer = 0;
+  invaderStepInterval = 800;
+  invaderSpeedFactor = 1;
+}
+
+// Invader shapes per row (pixel art using bw=4 blocks, offsets from center)
+const INV_SHAPES = [
+  // row 0 — diamond alien
+  [[-2,-2],[-1,-2],[0,-2],[1,-2],[2,-2],
+   [-3,-1],[-2,-1],[-1,-1],[0,-1],[1,-1],[2,-1],[3,-1],
+   [-2,0],[-1,0],[0,0],[1,0],[2,0],
+   [-3,1],[3,1],
+   [-2,2],[-1,2],[1,2],[2,2]],
+  // row 1 — crab alien
+  [[-1,-2],[0,-2],[1,-2],
+   [-3,-1],[-2,-1],[2,-1],[3,-1],
+   [-3,0],[-2,0],[-1,0],[0,0],[1,0],[2,0],[3,0],
+   [-2,1],[-1,1],[1,1],[2,1],
+   [-3,2],[3,2]],
+  // row 2 — squid alien
+  [[-1,-2],[0,-2],[1,-2],
+   [-2,-1],[-1,-1],[0,-1],[1,-1],[2,-1],
+   [-2,0],[-1,0],[0,0],[1,0],[2,0],
+   [-1,1],[1,1],
+   [-2,2],[2,2]],
+  // row 3 — basic
+  [[0,-2],
+   [-2,-1],[-1,-1],[0,-1],[1,-1],[2,-1],
+   [-2,0],[-1,0],[0,0],[1,0],[2,0],
+   [-1,1],[0,1],[1,1],
+   [-2,2],[2,2]],
+];
+// alternate frames (slight shift)
+const INV_SHAPES_B = [
+  [[-2,-2],[-1,-2],[0,-2],[1,-2],[2,-2],
+   [-3,-1],[-2,-1],[-1,-1],[0,-1],[1,-1],[2,-1],[3,-1],
+   [-2,0],[-1,0],[0,0],[1,0],[2,0],
+   [-2,1],[2,1],
+   [-3,2],[-1,2],[1,2],[3,2]],
+  [[-1,-2],[0,-2],[1,-2],
+   [-3,-1],[-2,-1],[2,-1],[3,-1],
+   [-3,0],[-2,0],[-1,0],[0,0],[1,0],[2,0],[3,0],
+   [-2,1],[0,1],[2,1],
+   [-4,2],[4,2]],
+  [[-1,-2],[0,-2],[1,-2],
+   [-2,-1],[-1,-1],[0,-1],[1,-1],[2,-1],
+   [-3,0],[-2,0],[-1,0],[0,0],[1,0],[2,0],[3,0],
+   [-1,1],[0,1],[1,1],
+   [-3,2],[3,2]],
+  [[0,-2],[-1,-2],[1,-2],
+   [-2,-1],[0,-1],[2,-1],
+   [-2,0],[-1,0],[0,0],[1,0],[2,0],
+   [-1,1],[0,1],[1,1],
+   [-3,2],[-1,2],[1,2],[3,2]],
+];
+
+const ROW_COLORS = ['#ff0000','#ff2200','#ff4400','#ff6600'];
+
+function drawInvaders() {
+  const bw = 3.5;
+  ctx2d.save();
+  for (const inv of invaders) {
+    if (!inv.alive) continue;
+    const shape = inv.frame === 0 ? INV_SHAPES[inv.row] : INV_SHAPES_B[inv.row];
+    ctx2d.fillStyle = ROW_COLORS[inv.row];
+    ctx2d.shadowColor = ROW_COLORS[inv.row];
+    ctx2d.shadowBlur = 8;
+    for (const [cx, cy] of shape) {
+      ctx2d.fillRect(
+        inv.x + cx * bw - bw / 2,
+        inv.y + cy * bw - bw / 2,
+        bw - 0.5,
+        bw - 0.5
+      );
+    }
+  }
+  ctx2d.restore();
+}
+
+function updateInvaders(dt) {
+  const alive = invaders.filter(i => i.alive);
+  if (alive.length === 0) { nextWave(); return; }
+
+  // animation
+  for (const inv of invaders) {
+    if (!inv.alive) continue;
+    inv.animTimer += dt;
+    if (inv.animTimer > 500) { inv.animTimer = 0; inv.frame ^= 1; }
+  }
+
+  // movement step
+  invaderStepTimer += dt;
+  const stepMs = Math.max(60, invaderStepInterval / invaderSpeedFactor - alive.length * 2.5);
+  if (invaderStepTimer < stepMs) return;
+  invaderStepTimer = 0;
+
+  const step = 14 * invaderSpeedFactor;
+  let minX = Infinity, maxX = -Infinity;
+  for (const inv of alive) {
+    minX = Math.min(minX, inv.x);
+    maxX = Math.max(maxX, inv.x);
+  }
+
+  const margin = 30;
+  if ((invaderDir > 0 && maxX + step > W - margin) ||
+      (invaderDir < 0 && minX - step < margin)) {
+    // drop and reverse
+    for (const inv of alive) {
+      inv.y += invaderDropAmount;
+    }
+    invaderDir *= -1;
+    // check if reached player
+    const bottomInvader = Math.max(...alive.map(i => i.y));
+    if (bottomInvader >= player.y - 40) {
+      loseLife();
+    }
+  } else {
+    for (const inv of alive) {
+      inv.x += step * invaderDir;
+    }
+  }
+
+  // random enemy shoot
+  shootEnemyBullet(alive);
+}
+
+function shootEnemyBullet(alive) {
+  if (Math.random() > 0.18 * invaderSpeedFactor) return;
+  if (enemyBullets.length >= 5) return;
+  const front = [];
+  for (let c = 0; c < INVADER_COLS; c++) {
+    let lowest = null;
+    for (const inv of alive) {
+      const col = Math.round((inv.x - ((W - inv.cellW * INVADER_COLS) / 2 + inv.cellW / 2)) / inv.cellW);
+      if (col === c) {
+        if (!lowest || inv.y > lowest.y) lowest = inv;
+      }
+    }
+    if (lowest) front.push(lowest);
+  }
+  if (front.length === 0) return;
+  const shooter = front[Math.floor(Math.random() * front.length)];
+  enemyBullets.push({
+    x: shooter.x,
+    y: shooter.y + 12,
+    w: 3,
+    h: 10,
+    speed: 4 + wave * 0.4,
+  });
+}
+
+// ── BULLETS ──────────────────────────────────────
+function fireBullet() {
+  const now = Date.now();
+  if (!player.alive) return;
+  if (bullets.filter(b => !b.dead).length >= MAX_BULLETS) return;
+  if (now - lastShot < SHOOT_COOLDOWN) return;
+  lastShot = now;
+  bullets.push({ x: player.x, y: player.y - 16, w: 3, h: 12, dead: false });
+  Audio.shoot();
+}
+
+function updateBullets() {
+  for (const b of bullets) {
+    if (b.dead) continue;
+    b.y -= BULLET_SPEED;
+    if (b.y < -20) b.dead = true;
+  }
+  bullets = bullets.filter(b => !b.dead);
+
+  for (const b of enemyBullets) {
+    b.y += b.speed;
+  }
+  enemyBullets = enemyBullets.filter(b => b.y < H + 20);
+}
+
+function drawBullets() {
+  ctx2d.save();
+  ctx2d.shadowBlur = 10;
+
+  ctx2d.fillStyle = '#ff0000';
+  ctx2d.shadowColor = '#ff0000';
+  for (const b of bullets) {
+    ctx2d.fillRect(b.x - b.w / 2, b.y, b.w, b.h);
+  }
+
+  ctx2d.fillStyle = '#ff6600';
+  ctx2d.shadowColor = '#ff6600';
+  for (const b of enemyBullets) {
+    ctx2d.fillRect(b.x - b.w / 2, b.y, b.w, b.h);
+  }
+  ctx2d.restore();
+}
+
+// ── COLLISION ─────────────────────────────────────
+function checkCollisions() {
+  const hitRadius = 14;
+
+  // player bullets vs invaders
+  for (const b of bullets) {
+    if (b.dead) continue;
+    for (const inv of invaders) {
+      if (!inv.alive) continue;
+      const dx = b.x - inv.x, dy = (b.y + b.h / 2) - inv.y;
+      if (Math.abs(dx) < hitRadius && Math.abs(dy) < hitRadius) {
+        b.dead = true;
+        inv.alive = false;
+        spawnParticles(inv.x, inv.y, ROW_COLORS[inv.row]);
+        Audio.explode();
+        addScore(inv.row);
+        shakeAmt = 5;
+        break;
+      }
+    }
+  }
+
+  // enemy bullets vs player
+  if (player.alive && player.invincible <= 0) {
+    for (const b of enemyBullets) {
+      const dx = b.x - player.x, dy = (b.y + b.h / 2) - player.y;
+      if (Math.abs(dx) < 18 && Math.abs(dy) < 16) {
+        b.y = H + 100;
+        loseLife();
+        break;
+      }
+    }
+  }
+}
+
+// ── SCORE / COMBO ────────────────────────────────
+function addScore(row) {
+  consecutiveHits++;
+  combo = Math.min(Math.floor(1 + consecutiveHits / 3), 8);
+  const pts = BASE_POINTS[row] * combo;
+  score += pts;
+
+  // update HUD
+  const sv = document.getElementById('score-display');
+  sv.textContent = score;
+  sv.classList.add('flash');
+  setTimeout(() => sv.classList.remove('flash'), 200);
+
+  const cv = document.getElementById('combo-value');
+  cv.textContent = `x${combo}`;
+
+  if (combo > 1) {
+    const cd = document.getElementById('combo-display');
+    cd.classList.add('combo-bump');
+    setTimeout(() => cd.classList.remove('combo-bump'), 150);
+    if (consecutiveHits % 3 === 0) {
+      Audio.comboUp();
+      showSpeechBubble();
+    }
+  }
+
+  // score popup
+  scorePopups.push({ x: 0, y: 0, text: `+${pts}`, life: 60 });
+}
+
+function resetCombo() {
+  consecutiveHits = 0;
+  combo = 1;
+  document.getElementById('combo-value').textContent = 'x1';
+}
+
+let scorePopups = [];
+
+function loseLife() {
+  if (!player.alive) return;
+  Audio.playerHit();
+  shakeAmt = 12;
+  player.invincible = 2500;
+  resetCombo();
+
+  const livesEl = document.getElementById('lives-display');
+  const icons = livesEl.querySelectorAll('.life-icon');
+  const currentLives = Array.from(icons).filter(i => !i.classList.contains('lost')).length;
+  if (currentLives > 0) {
+    const last = Array.from(icons).reverse().find(i => !i.classList.contains('lost'));
+    if (last) last.classList.add('lost');
+  }
+
+  if (currentLives <= 1) {
+    endGame();
+  } else {
+    spawnParticles(player.x, player.y, '#ff0000', 20);
+  }
+}
+
+// ── NEXT WAVE ────────────────────────────────────
+function nextWave() {
+  wave++;
+  invaderSpeedFactor = 1 + wave * 0.15;
+  initInvaders();
+  showSpeechBubble();
+}
+
+// ── PARTICLES ────────────────────────────────────
+function spawnParticles(x, y, color, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+    const speed = Math.random() * 3 + 1;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: Math.random() * 0.04 + 0.025,
+      r: Math.random() * 3 + 1,
+      color,
+    });
+  }
+}
+
+function updateParticles() {
+  for (const p of particles) {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.08; // gravity
+    p.life -= p.decay;
+  }
+  particles = particles.filter(p => p.life > 0);
+}
+
+function drawParticles() {
+  ctx2d.save();
+  for (const p of particles) {
+    ctx2d.globalAlpha = p.life;
+    ctx2d.fillStyle = p.color;
+    ctx2d.shadowColor = p.color;
+    ctx2d.shadowBlur = 8;
+    ctx2d.fillRect(p.x - p.r / 2, p.y - p.r / 2, p.r, p.r);
+  }
+  ctx2d.globalAlpha = 1;
+  ctx2d.restore();
+}
+
+// ── SPEECH BUBBLE ────────────────────────────────
+function showSpeechBubble() {
+  const phrase = COMBO_PHRASES[Math.floor(Math.random() * COMBO_PHRASES.length)];
+  const el = document.getElementById('speech-bubble');
+  el.textContent = phrase;
+  el.classList.add('visible');
+  if (bubbleTimer) clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => el.classList.remove('visible'), 2200);
+}
+
+// ── GLITCH EFFECT ────────────────────────────────
+function triggerGlitch(el) {
+  el.classList.add('glitching');
+  setTimeout(() => el.classList.remove('glitching'), 200);
+}
+setInterval(() => {
+  if (Math.random() < 0.25) {
+    const el = document.querySelector('.glitch-wrap');
+    if (el) triggerGlitch(el);
+  }
+}, 3500);
+
+// ── INPUT ────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (gameState === 'playing') fireBullet();
+  }
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// mobile
+document.getElementById('mob-left').addEventListener('touchstart',  () => mobileLeft = true);
+document.getElementById('mob-left').addEventListener('touchend',    () => mobileLeft = false);
+document.getElementById('mob-right').addEventListener('touchstart', () => mobileRight = true);
+document.getElementById('mob-right').addEventListener('touchend',   () => mobileRight = false);
+document.getElementById('mob-fire').addEventListener('touchstart',  () => { mobileFire = true; });
+document.getElementById('mob-fire').addEventListener('touchend',    () => { mobileFire = false; });
+
+function isMobile() {
+  return /Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent) ||
+         ('ontouchstart' in window) || window.innerWidth < 700;
+}
+
+// ── HUD HELPERS ──────────────────────────────────
+function initHUD() {
+  const livesEl = document.getElementById('lives-display');
+  livesEl.innerHTML = '';
+  for (let i = 0; i < MAX_LIVES; i++) {
+    const span = document.createElement('span');
+    span.className = 'life-icon';
+    span.textContent = '▲';
+    livesEl.appendChild(span);
+  }
+  document.getElementById('score-display').textContent = '0';
+  document.getElementById('combo-value').textContent = 'x1';
+}
+
+// ── MUTE ─────────────────────────────────────────
+document.getElementById('mute-btn').addEventListener('click', () => {
+  const m = !Audio.isMuted();
+  Audio.setMute(m);
+  document.getElementById('mute-btn').textContent = m ? '✕ sound' : '♪ sound';
+});
+
+// ── SCREENS ──────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  if (id) document.getElementById(id).classList.remove('hidden');
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+document.getElementById('menu-btn').addEventListener('click', () => {
+  gameState = 'intro';
+  showScreen('intro-screen');
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('mobile-controls').classList.remove('active');
+});
+
+// ── GAME LIFECYCLE ────────────────────────────────
+function startGame() {
+  score = 0; combo = 1; consecutiveHits = 0; wave = 1;
+  bullets = []; enemyBullets = []; particles = []; scorePopups = [];
+  invaderSpeedFactor = 1; diffTimer = 0;
+  gameState = 'playing';
+
+  initPlayer();
+  initInvaders();
+  initHUD();
+  initStars();
+
+  showScreen(null);
+  document.getElementById('hud').classList.remove('hidden');
+
+  if (isMobile()) {
+    document.getElementById('mobile-controls').classList.add('active');
+  }
+}
+
+function endGame() {
+  player.alive = false;
+  Audio.gameOver();
+  spawnParticles(player.x, player.y, '#ff0000', 40);
+  gameState = 'gameover';
+
+  setTimeout(() => {
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('mobile-controls').classList.remove('active');
+    document.getElementById('final-score').textContent = score;
+    const hiNotice = document.getElementById('hi-score-notice');
+    if (score > hiScore) {
+      hiScore = score;
+      localStorage.setItem('bomaHi', hiScore);
+      hiNotice.style.display = 'block';
+      triggerGlitch(document.getElementById('go-title'));
+    } else {
+      hiNotice.style.display = 'none';
+    }
+    showScreen('gameover-screen');
+  }, 1200);
+}
+
+// ── MAIN LOOP ─────────────────────────────────────
+let lastTime = 0;
+
+function loop(ts) {
+  const dt = Math.min(ts - lastTime, 50);
+  lastTime = ts;
+
+  // clear
+  ctx2d.fillStyle = '#000';
+  ctx2d.fillRect(0, 0, W, H);
+
+  // screen shake
+  if (shakeAmt > 0.1) {
+    const sx = (Math.random() - 0.5) * shakeAmt;
+    const sy = (Math.random() - 0.5) * shakeAmt;
+    ctx2d.save();
+    ctx2d.translate(sx, sy);
+    shakeAmt *= 0.75;
+  }
+
+  updateStars();
+  drawStars();
+
+  if (gameState === 'playing') {
+    // player movement
+    const speed = isMobile() ? PLAYER_SPEED * 1.5 : PLAYER_SPEED;
+    if ((keys['ArrowLeft'] || keys['KeyA'] || mobileLeft) && player.x > player.w / 2) {
+      player.x -= speed;
+    }
+    if ((keys['ArrowRight'] || keys['KeyD'] || mobileRight) && player.x < W - player.w / 2) {
+      player.x += speed;
+    }
+
+    // mobile fire
+    if (mobileFire && !mobileFirePrev) fireBullet();
+    mobileFirePrev = mobileFire;
+
+    // invincibility timer
+    if (player.invincible > 0) player.invincible -= dt;
+
+    // difficulty
+    diffTimer += dt;
+    if (diffTimer > 15000) {
+      diffTimer = 0;
+      invaderSpeedFactor = Math.min(invaderSpeedFactor + 0.1, 3);
+    }
+
+    updateInvaders(dt);
+    updateBullets();
+    updateParticles();
+    checkCollisions();
+
+    drawInvaders();
+    drawBullets();
+    drawParticles();
+    drawPlayer();
+    drawScorePopups();
+
+    // position speech bubble above player
+    const sb = document.getElementById('speech-bubble');
+    sb.style.bottom = (H - player.y + 60) + 'px';
+    sb.style.left = player.x + 'px';
+    sb.style.transform = 'translateX(-50%)';
+  } else {
+    // still draw particles for game over anim
+    updateParticles();
+    drawParticles();
+  }
+
+  if (shakeAmt > 0.1) ctx2d.restore();
+
+  animId = requestAnimationFrame(loop);
+}
+
+// ── SCORE POPUPS ─────────────────────────────────
+function drawScorePopups() {
+  ctx2d.save();
+  ctx2d.font = '700 0.7rem BOMA-MONO, monospace';
+  ctx2d.textAlign = 'center';
+  for (const p of scorePopups) {
+    ctx2d.globalAlpha = p.life / 60;
+    ctx2d.fillStyle = '#fff';
+    ctx2d.shadowColor = '#ff0000';
+    ctx2d.shadowBlur = 8;
+    ctx2d.fillText(p.text, p.x || W / 2, p.y || H / 2);
+    p.life--;
+    p.y = (p.y || H / 2) - 0.6;
+  }
+  scorePopups = scorePopups.filter(p => p.life > 0);
+  ctx2d.globalAlpha = 1;
+  ctx2d.restore();
+}
+
+// ── BOOT ─────────────────────────────────────────
+initCanvas();
+initStars();
+requestAnimationFrame(loop);
+
+// Fix: attach score popups near hit position
+const _addScore = addScore;
+// (already integrated above)
+
+// Ensure intro glitch fires
+setTimeout(() => {
+  const t = document.getElementById('intro-title');
+  if (t) triggerGlitch(t);
+}, 800);
+</script>
+</body>
+</html>
