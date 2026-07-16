@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCANNER DISTORTION SIMULATOR</title>
+<style>
+  :root {
+    --bg: #0e0e11;
+    --panel: #16161b;
+    --line: #26262e;
+    --ink: #c9c9d4;
+    --dim: #6d6d7c;
+    --accent: #ff4fa3; /* the grade's magenta, used only for live/armed states */
+    --rec: #ff3b3b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 20px 40px;
+  }
+  header {
+    width: 100%;
+    max-width: 1160px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 18px 2px 14px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+  }
+  header h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.18em; }
+  header h1 span { color: var(--dim); font-weight: 400; }
+  #status { color: var(--dim); letter-spacing: 0.08em; }
+  #status.scanning { color: var(--accent); }
+  #status.recording { color: var(--rec); }
+
+  .panes { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+  .pane { display: flex; flex-direction: column; gap: 8px; }
+  .pane-label { color: var(--dim); letter-spacing: 0.14em; display: flex; justify-content: space-between; }
+  canvas.view {
+    display: block;
+    background: #fff;
+    border: 1px solid var(--line);
+    width: auto; height: auto;
+    max-width: min(44vw, 500px);
+    max-height: 74vh;
+  }
+  #bed { cursor: grab; touch-action: none; }
+  #bed.dragging { cursor: grabbing; }
+  #bed.dropping { outline: 2px dashed var(--accent); outline-offset: -2px; }
+
+  .controls {
+    width: 100%;
+    max-width: 1160px;
+    margin-top: 20px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    padding: 14px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 28px;
+    align-items: flex-end;
+  }
+  .ctl { display: flex; flex-direction: column; gap: 6px; }
+  .ctl label { color: var(--dim); letter-spacing: 0.12em; font-size: 10px; }
+  .ctl .val { color: var(--ink); }
+  .ctl input[type=range] { width: 140px; accent-color: var(--accent); }
+  .seg { display: flex; }
+  .seg button, .actions button, #loadBtn {
+    font: inherit;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 7px 12px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+  }
+  .seg button + button { border-left: none; }
+  .seg button.on { background: var(--accent); color: #14030c; border-color: var(--accent); }
+  .actions { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+  .actions button:hover, .seg button:hover:not(.on), #loadBtn:hover { border-color: var(--dim); }
+  #recBtn.armed { background: var(--rec); color: #fff; border-color: var(--rec); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 1180px) {
+    .panes { flex-direction: column; align-items: center; }
+    canvas.view { max-width: 92vw; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>EASYSCAN <span>// SLIT-SCAN RECORDER</span></h1>
+  <div id="status">IDLE</div>
+</header>
+
+<div class="panes">
+  <div class="pane">
+    <div class="pane-label"><span>SCAN BED</span><span>DRAG IMAGE — ANY TIME, MID-SCAN</span></div>
+    <canvas id="bed" class="view" width="1080" height="1350"></canvas>
+  </div>
+  <div class="pane">
+    <div class="pane-label"><span>OUTPUT</span><span id="outDims">1080 × 1350</span></div>
+    <canvas id="out" class="view" width="1080" height="1350"></canvas>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="ctl">
+    <label>FORMAT</label>
+    <div class="seg" id="sizeSeg">
+      <button data-w="1080" data-h="1350" class="on">1080×1350</button>
+      <button data-w="1080" data-h="1920">1080×1920</button>
+    </div>
+  </div>
+  <div class="ctl">
+    <label>DIRECTION</label>
+    <div class="seg">
+      <button id="dirV" class="on">VERTICAL</button>
+      <button id="dirH">HORIZONTAL</button>
+    </div>
+  </div>
+  <div class="ctl">
+    <label>SPEED <span class="val" id="speedVal">1.0 PX/FR</span></label>
+    <input type="range" id="speed" min="0.25" max="8" step="0.25" value="1">
+  </div>
+  <div class="ctl">
+    <label>CHROMA SPLIT <span class="val" id="caVal">3 PX</span></label>
+    <input type="range" id="ca" min="0" max="40" step="1" value="3">
+  </div>
+  <div class="ctl">
+    <label>NOISE <span class="val" id="noiseVal">40%</span></label>
+    <input type="range" id="noise" min="0" max="100" step="1" value="40">
+  </div>
+  <div class="ctl">
+    <label>COLOR</label>
+    <div class="seg" id="gradeSeg">
+      <button data-g="PINK" class="on">PINK</button>
+      <button data-g="CYAN">CYAN</button>
+      <button data-g="MONO">MONO</button>
+      <button data-g="OFF">OFF</button>
+    </div>
+  </div>
+  <div class="ctl">
+    <label>MODE</label>
+    <div class="seg">
+      <button id="modeLoop" class="on">LOOP</button>
+      <button id="modeSingle">SINGLE</button>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="loadBtn">LOAD IMAGE</button>
+    <input type="file" id="file" accept="image/*" hidden>
+    <button id="playBtn">PAUSE</button>
+    <button id="resetBtn">RESET</button>
+    <button id="pngBtn">EXPORT PNG</button>
+    <button id="recBtn">● REC VIDEO</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+let W = 1080, H = 1350;
+
+// ---------------- state ----------------
+const state = {
+  img: null,            // HTMLImageElement or canvas
+  ix: 0, iy: 0,         // image position on bed
+  iw: 0, ih: 0,         // drawn size (fit-scaled)
+  dir: 'V',             // 'V' | 'H'
+  speed: 1.0,
+  ca: 3,
+  noise: 40,
+  grade: 'PINK',
+  loop: true,
+  playing: true,
+  pos: 0,               // scanline position, float
+};
+
+const GRADES = {
+  PINK: { s: [43, 0, 60],  h: [255, 227, 244] },
+  CYAN: { s: [2, 20, 46],  h: [214, 250, 255] },
+  MONO: { s: [10, 10, 12], h: [245, 245, 245] },
+  OFF:  null,
+};
+
+// ---------------- canvases ----------------
+const bed = document.getElementById('bed');
+const bctx = bed.getContext('2d');
+const outCanvas = document.getElementById('out');           // display + export
+const octx = outCanvas.getContext('2d');
+const record = document.createElement('canvas');            // recorded pixels only
+record.width = W; record.height = H;
+const rctx = record.getContext('2d');
+const flat = document.createElement('canvas');              // white bg + image (slice source)
+flat.width = W; flat.height = H;
+const fctx = flat.getContext('2d', { willReadFrequently: true });
+
+function clearRecord() {
+  rctx.fillStyle = '#fff';
+  rctx.fillRect(0, 0, W, H);
+}
+clearRecord();
+
+// ---------------- default test image (replaced on load) ----------------
+function makeTestImage() {
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.scale(W / 540, H / 720); // shapes authored in 540×720 space
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 540, 720);
+  const grad = g.createLinearGradient(0, 300, 0, 720);
+  grad.addColorStop(0, '#2a2a2e'); grad.addColorStop(1, '#0d0d10');
+  g.fillStyle = grad;
+  g.beginPath();
+  g.moveTo(90, 720);
+  g.bezierCurveTo(110, 480, 200, 430, 270, 425);
+  g.bezierCurveTo(340, 430, 430, 480, 450, 720);
+  g.closePath(); g.fill();
+  g.fillStyle = '#1c1c20'; g.fillRect(240, 360, 60, 90);
+  const hg = g.createRadialGradient(250, 240, 40, 270, 260, 150);
+  hg.addColorStop(0, '#3a3a40'); hg.addColorStop(1, '#101014');
+  g.fillStyle = hg;
+  g.beginPath(); g.ellipse(270, 250, 95, 125, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(210,210,220,0.5)';
+  g.beginPath(); g.ellipse(235, 220, 30, 55, -0.2, 0, Math.PI * 2); g.fill();
+  return c;
+}
+
+function setImage(source, w, h) {
+  state.img = source;
+  state.srcW = w; state.srcH = h;
+  const scale = Math.min(W / w, H / h);
+  state.iw = w * scale;
+  state.ih = h * scale;
+  state.ix = (W - state.iw) / 2;
+  state.iy = (H - state.ih) / 2;
+}
+setImage(makeTestImage(), W, H);
+
+function setSize(w, h) {
+  W = w; H = h;
+  bed.width = W; bed.height = H;
+  outCanvas.width = W; outCanvas.height = H;
+  record.width = W; record.height = H;
+  flat.width = W; flat.height = H;
+  document.getElementById('outDims').textContent = W + ' × ' + H;
+  state.pos = 0;
+  clearRecord();
+  setImage(state.img, state.srcW, state.srcH);
+}
+
+// ---------------- per-slice processing (verified in prototype) ----------------
+// Chromatic aberration always splits horizontally (matches the reference).
+function processRow(src, y, out) {
+  const { ca, noise, grade } = state;
+  const G = GRADES[grade];
+  const row = y * W * 4;
+  for (let x = 0; x < W; x++) {
+    const xr = Math.min(W - 1, Math.max(0, x - ca));
+    const xb = Math.min(W - 1, Math.max(0, x + ca));
+    let R = src[row + xr * 4];
+    let Gc = src[row + x * 4 + 1];
+    let B = src[row + xb * 4 + 2];
+    if (G) {
+      R = G.s[0] + (G.h[0] - G.s[0]) * (R / 255);
+      Gc = G.s[1] + (G.h[1] - G.s[1]) * (Gc / 255);
+      B = G.s[2] + (G.h[2] - G.s[2]) * (B / 255);
+    }
+    const n = (Math.random() - 0.5) * 2 * 255 * (noise / 100) * 0.45;
+    R += n; Gc += n; B += n;
+    const o = x * 4;
+    out[o]     = R < 0 ? 0 : R > 255 ? 255 : R;
+    out[o + 1] = Gc < 0 ? 0 : Gc > 255 ? 255 : Gc;
+    out[o + 2] = B < 0 ? 0 : B > 255 ? 255 : B;
+    out[o + 3] = 255;
+  }
+}
+// sw = strip width in px, xg = global column, x0 = strip's left edge on the bed
+function processCol(src, sw, xg, x0, out) {
+  const { ca, noise, grade } = state;
+  const G = GRADES[grade];
+  const xc = (xg - x0) * 4;
+  const xr = (Math.max(0, Math.min(W - 1, xg - ca)) - x0) * 4;
+  const xb = (Math.max(0, Math.min(W - 1, xg + ca)) - x0) * 4;
+  for (let y = 0; y < H; y++) {
+    const row = y * sw * 4;
+    let R = src[row + xr];
+    let Gc = src[row + xc + 1];
+    let B = src[row + xb + 2];
+    if (G) {
+      R = G.s[0] + (G.h[0] - G.s[0]) * (R / 255);
+      Gc = G.s[1] + (G.h[1] - G.s[1]) * (Gc / 255);
+      B = G.s[2] + (G.h[2] - G.s[2]) * (B / 255);
+    }
+    const n = (Math.random() - 0.5) * 2 * 255 * (noise / 100) * 0.45;
+    R += n; Gc += n; B += n;
+    const o = y * 4;
+    out[o]     = R < 0 ? 0 : R > 255 ? 255 : R;
+    out[o + 1] = Gc < 0 ? 0 : Gc > 255 ? 255 : Gc;
+    out[o + 2] = B < 0 ? 0 : B > 255 ? 255 : B;
+    out[o + 3] = 255;
+  }
+}
+
+// ---------------- main loop ----------------
+function frame() {
+  const span = state.dir === 'V' ? H : W;
+
+  if (state.playing) {
+    // snapshot of the flat bed at this instant — the "sensor" sees this
+    fctx.fillStyle = '#fff';
+    fctx.fillRect(0, 0, W, H);
+    fctx.drawImage(state.img, state.ix, state.iy, state.iw, state.ih);
+
+    const from = Math.floor(state.pos);
+    state.pos += state.speed;
+    const to = Math.min(Math.floor(state.pos), span);
+
+    if (to > from) {
+      if (state.dir === 'V') {
+        // read only the rows written this frame
+        const strip = fctx.getImageData(0, from, W, to - from).data;
+        for (let p = from; p < to; p++) {
+          const line = rctx.createImageData(W, 1);
+          processRow(strip, p - from, line.data);
+          rctx.putImageData(line, 0, p);
+        }
+      } else {
+        // read only the columns written this frame, plus chroma-split margin
+        const x0 = Math.max(0, from - state.ca);
+        const x1 = Math.min(W, to + state.ca);
+        const strip = fctx.getImageData(x0, 0, x1 - x0, H).data;
+        for (let p = from; p < to; p++) {
+          const line = rctx.createImageData(1, H);
+          processCol(strip, x1 - x0, p, x0, line.data);
+          rctx.putImageData(line, p, 0);
+        }
+      }
+    }
+
+    if (state.pos >= span) {
+      if (state.loop) { state.pos = 0; } // re-record over the old pass, line by line
+      else { state.pos = span; setPlaying(false); }
+    }
+  }
+
+  drawBed();
+  drawOutput();
+  requestAnimationFrame(frame);
+}
+
+function drawBed() {
+  const k = W / 540;
+  bctx.fillStyle = '#141418';
+  bctx.fillRect(0, 0, W, H);
+  bctx.strokeStyle = '#1f1f26';
+  bctx.lineWidth = Math.max(1, k * 0.75);
+  const step = 30 * k;
+  bctx.beginPath();
+  for (let x = 0; x <= W; x += step) { bctx.moveTo(x + 0.5, 0); bctx.lineTo(x + 0.5, H); }
+  for (let y = 0; y <= H; y += step) { bctx.moveTo(0, y + 0.5); bctx.lineTo(W, y + 0.5); }
+  bctx.stroke();
+  bctx.drawImage(state.img, state.ix, state.iy, state.iw, state.ih);
+  // scanline
+  const p = Math.min(state.pos, (state.dir === 'V' ? H : W) - 1);
+  bctx.fillStyle = 'rgba(255,79,163,0.18)';
+  bctx.strokeStyle = '#ff4fa3';
+  bctx.lineWidth = k;
+  if (state.dir === 'V') {
+    bctx.fillRect(0, p - 4 * k, W, 9 * k);
+    bctx.beginPath(); bctx.moveTo(0, p + 0.5); bctx.lineTo(W, p + 0.5); bctx.stroke();
+  } else {
+    bctx.fillRect(p - 4 * k, 0, 9 * k, H);
+    bctx.beginPath(); bctx.moveTo(p + 0.5, 0); bctx.lineTo(p + 0.5, H); bctx.stroke();
+  }
+}
+
+function drawOutput() {
+  octx.drawImage(record, 0, 0);
+  // diegetic HUD, baked into the export like the reference
+  const lines = [
+    state.dir === 'V' ? 'VERTICAL' : 'HORIZONTAL',
+    state.speed.toFixed(1) + ' PX/FR',
+    'CHROMA ' + state.ca + ' PX',
+    'COLOR ' + state.grade,
+    'NOISE ' + state.noise + '%',
+  ];
+  const k = W / 540;
+  octx.font = Math.round(11 * k) + 'px ui-monospace, Menlo, Consolas, monospace';
+  lines.forEach((t, i) => {
+    const y = H - 14 * k - (lines.length - 1 - i) * 15 * k;
+    octx.fillStyle = 'rgba(0,0,0,0.45)';
+    octx.fillRect(12 * k, y - 10 * k, octx.measureText(t).width + 10 * k, 13 * k);
+    octx.fillStyle = '#fff';
+    octx.fillText(t, 17 * k, y);
+  });
+}
+
+requestAnimationFrame(frame);
+
+// ---------------- dragging ----------------
+let drag = null;
+bed.addEventListener('pointerdown', e => {
+  const r = bed.getBoundingClientRect();
+  const sx = W / r.width, sy = H / r.height;
+  drag = { dx: e.clientX * sx - state.ix, dy: e.clientY * sy - state.iy, sx, sy };
+  bed.setPointerCapture(e.pointerId);
+  bed.classList.add('dragging');
+});
+bed.addEventListener('pointermove', e => {
+  if (!drag) return;
+  state.ix = e.clientX * drag.sx - drag.dx;
+  state.iy = e.clientY * drag.sy - drag.dy;
+});
+bed.addEventListener('pointerup', () => { drag = null; bed.classList.remove('dragging'); });
+
+// ---------------- image loading ----------------
+const fileInput = document.getElementById('file');
+document.getElementById('loadBtn').onclick = () => fileInput.click();
+fileInput.onchange = () => loadFile(fileInput.files[0]);
+bed.addEventListener('dragover', e => { e.preventDefault(); bed.classList.add('dropping'); });
+bed.addEventListener('dragleave', () => bed.classList.remove('dropping'));
+bed.addEventListener('drop', e => {
+  e.preventDefault();
+  bed.classList.remove('dropping');
+  loadFile(e.dataTransfer.files[0]);
+});
+function loadFile(f) {
+  if (!f || !f.type.startsWith('image/')) { setStatus('NOT AN IMAGE FILE'); return; }
+  const url = URL.createObjectURL(f);
+  const img = new Image();
+  img.onload = () => {
+    setImage(img, img.naturalWidth, img.naturalHeight);
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+// ---------------- controls ----------------
+const statusEl = document.getElementById('status');
+function setStatus(t) {
+  statusEl.textContent = t;
+  statusEl.className = recording ? 'recording' : (state.playing ? 'scanning' : '');
+}
+function refreshStatus() {
+  setStatus(recording ? 'REC ● SCANNING' : (state.playing ? 'SCANNING' : 'PAUSED'));
+}
+
+const dirV = document.getElementById('dirV');
+const dirH = document.getElementById('dirH');
+function setDir(d) {
+  state.dir = d;
+  dirV.classList.toggle('on', d === 'V');
+  dirH.classList.toggle('on', d === 'H');
+  state.pos = 0;
+  clearRecord();
+}
+dirV.onclick = () => setDir('V');
+dirH.onclick = () => setDir('H');
+
+document.getElementById('speed').oninput = e => {
+  state.speed = +e.target.value;
+  document.getElementById('speedVal').textContent = state.speed.toFixed(1) + ' PX/FR';
+};
+document.getElementById('ca').oninput = e => {
+  state.ca = +e.target.value;
+  document.getElementById('caVal').textContent = state.ca + ' PX';
+};
+document.getElementById('noise').oninput = e => {
+  state.noise = +e.target.value;
+  document.getElementById('noiseVal').textContent = state.noise + '%';
+};
+document.getElementById('gradeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  state.grade = b.dataset.g;
+  [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b));
+});
+const modeLoop = document.getElementById('modeLoop');
+const modeSingle = document.getElementById('modeSingle');
+modeLoop.onclick = () => { state.loop = true; modeLoop.classList.add('on'); modeSingle.classList.remove('on'); };
+modeSingle.onclick = () => { state.loop = false; modeSingle.classList.add('on'); modeLoop.classList.remove('on'); };
+
+const playBtn = document.getElementById('playBtn');
+function setPlaying(p) {
+  if (p && state.pos >= (state.dir === 'V' ? H : W)) { state.pos = 0; clearRecord(); }
+  state.playing = p;
+  playBtn.textContent = p ? 'PAUSE' : 'PLAY';
+  refreshStatus();
+}
+playBtn.onclick = () => setPlaying(!state.playing);
+
+document.getElementById('sizeSeg').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (recording) recBtn.click(); // finish + save the current take before resizing
+  setSize(+b.dataset.w, +b.dataset.h);
+  [...e.currentTarget.children].forEach(x => x.classList.toggle('on', x === b));
+});
+
+document.getElementById('resetBtn').onclick = () => {
+  state.pos = 0;
+  clearRecord();
+  setImage(state.img, state.srcW, state.srcH);
+};
+
+// ---------------- export ----------------
+document.getElementById('pngBtn').onclick = () => {
+  outCanvas.toBlob(b => download(b, 'scan_' + stamp() + '.png'), 'image/png');
+};
+
+let recording = false, recorder = null, chunks = [];
+const recBtn = document.getElementById('recBtn');
+recBtn.onclick = () => {
+  if (!recording) {
+    chunks = [];
+    const stream = outCanvas.captureStream(60);
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+      ? 'video/webm;codecs=vp9' : 'video/webm';
+    recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => download(new Blob(chunks, { type: 'video/webm' }), 'scan_' + stamp() + '.webm');
+    recorder.start();
+    recording = true;
+    recBtn.textContent = '■ STOP + SAVE';
+    recBtn.classList.add('armed');
+  } else {
+    recorder.stop();
+    recording = false;
+    recBtn.textContent = '● REC VIDEO';
+    recBtn.classList.remove('armed');
+  }
+  refreshStatus();
+};
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function stamp() {
+  return new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+}
+
+refreshStatus();
+</script>
+</body>
+</html>
