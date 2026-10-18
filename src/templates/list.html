@@ -1,0 +1,14 @@
+<section class="page-head container">
+  <p class="eyebrow">{{count}}</p>
+  <h1 class="page-title">{{title}}</h1>
+  <p class="page-intro">{{intro}}</p>
+</section>
+
+<section class="container listing" data-filter-root aria-label="Itens de {{title}}">
+{{filters}}
+  <p class="visually-hidden" role="status" aria-live="polite" data-filter-status></p>
+  <div class="grid" data-filter-grid>
+{{cards}}
+  </div>
+  <p class="empty" hidden data-filter-empty>Nenhum item com essa tag.</p>
+</section>

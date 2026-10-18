@@ -1,0 +1,23 @@
+<header class="site-header" data-header>
+  <div class="site-header__inner container">
+    <a class="logo" href="/" aria-label="{{siteName}}, página inicial">
+      <span class="logo__mark" aria-hidden="true"></span>
+      <span class="logo__name">{{siteName}}</span>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <button class="nav__toggle" type="button" aria-expanded="false" aria-controls="menu" data-menu-toggle>
+        <span class="nav__toggle-label">Menu</span>
+        <span class="nav__toggle-icon" aria-hidden="true"><span></span><span></span></span>
+      </button>
+      <div class="nav__panel" id="menu" data-menu>
+        <ul class="nav__list" role="list">
+          <li><a class="nav__link" href="/blog"{{current_blog}}>Blog</a></li>
+          <li><a class="nav__link" href="/projetos"{{current_projetos}}>Projetos</a></li>
+          <li><a class="nav__link" href="/portfolio"{{current_portfolio}}>Portfólio</a></li>
+          <li><a class="nav__link" href="/labs"{{current_labs}}>Labs</a></li>
+          <li><a class="nav__link" href="/contato"{{current_contato}}>Contato</a></li>
+        </ul>
+      </div>
+    </nav>
+  </div>
+</header>

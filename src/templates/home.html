@@ -1,0 +1,19 @@
+<section class="hero" aria-labelledby="hero-title" data-hero>
+  <canvas class="hero__canvas" aria-hidden="true" data-hero-canvas></canvas>
+  <div class="hero__content container">
+    <p class="hero__kicker">{{heroKicker}}</p>
+    <h1 class="hero__title" id="hero-title">{{heroTitle}}</h1>
+    <p class="hero__subtitle">{{heroSubtitle}}</p>
+    <div class="hero__actions">
+      <a class="button button--primary" href="/portfolio">Ver portfólio</a>
+      <a class="button button--ghost" href="/labs">Explorar Labs</a>
+    </div>
+  </div>
+  <a class="hero__scroll" href="#secoes" aria-label="Rolar para as seções">
+    <span aria-hidden="true"></span>
+  </a>
+</section>
+
+<div class="home-sections" id="secoes">
+{{sectionBlocks}}
+</div>

@@ -1,0 +1,24 @@
+<article class="item item--{{section}}">
+  <header class="item__head container">
+    <a class="back link" href="/{{section}}">← {{sectionTitle}}</a>
+    <h1 class="item__title">{{title}}</h1>
+    <p class="item__lead">{{description}}</p>
+{{meta}}
+{{actions}}
+  </header>
+
+{{hero}}
+
+  <div class="item__body container">
+    <div class="prose">
+{{body}}
+    </div>
+  </div>
+
+{{gallery}}
+
+  <footer class="item__foot container">
+{{tags}}
+{{pager}}
+  </footer>
+</article>

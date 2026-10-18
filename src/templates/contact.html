@@ -1,0 +1,37 @@
+<section class="page-head container">
+  <p class="eyebrow">Contato</p>
+  <h1 class="page-title">{{title}}</h1>
+  <p class="page-intro">{{intro}}</p>
+</section>
+
+<section class="container contact">
+  <form class="contact-form" action="/api/contact" method="post" novalidate data-contact-form>
+    <div class="field">
+      <label for="name">Nome</label>
+      <input id="name" name="name" type="text" autocomplete="name" required minlength="2" maxlength="100">
+    </div>
+    <div class="field">
+      <label for="email">E-mail</label>
+      <input id="email" name="email" type="email" autocomplete="email" required maxlength="200">
+    </div>
+    <div class="field">
+      <label for="message">Mensagem</label>
+      <textarea id="message" name="message" rows="7" required minlength="10" maxlength="5000"></textarea>
+    </div>
+    <div class="field field--hp" aria-hidden="true">
+      <label for="website">Não preencha este campo</label>
+      <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+    </div>
+    <button class="button button--primary" type="submit" data-submit>Enviar mensagem</button>
+    <p class="form-status" role="status" aria-live="polite" data-form-status></p>
+  </form>
+
+  <aside class="contact__aside" aria-label="Outros canais">
+    <h2 class="contact__heading">Prefere e-mail direto?</h2>
+    <p><a class="link" href="mailto:{{email}}">{{email}}</a></p>
+    <h2 class="contact__heading">Redes</h2>
+    <ul class="social social--stack" role="list">
+{{socialLinks}}
+    </ul>
+  </aside>
+</section>

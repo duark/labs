@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DitherLab Pro - Floyd-Steinberg Studio</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-panel: #1e1e1e;
+            --accent: #00ff88;
+            --text: #e0e0e0;
+            --border: #333;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        h2 {
+            color: var(--accent);
+            margin-top: 0;
+            font-size: 1.2rem;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            opacity: 0.8;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        select,
+        button {
+            background: #2a2a2a;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: var(--accent);
+            color: black;
+            font-weight: bold;
+        }
+
+        .btn-save {
+            background: var(--accent);
+            color: black;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        /* Main Viewport */
+        .viewport {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            position: relative;
+            background-image: radial-gradient(#222 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            image-rendering: pixelated;
+            /* Mantém o estilo retro nítido */
+            cursor: pointer;
+        }
+
+        .upload-area {
+            text-align: center;
+            border: 2px dashed var(--border);
+            padding: 40px;
+            border-radius: 8px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <h2>DitherLab Pro</h2>
+
+            <div class="control-group">
+                <button onclick="document.getElementById('fileInput').click()">Carregar Imagem</button>
+                <input type="file" id="fileInput" class="hidden" accept="image/*">
+            </div>
+
+            <hr style="width:100%; border:0; border-top:1px solid var(--border);">
+
+            <div class="control-group">
+                <label>Resolução (Pixel Size): <span id="val-res">1</span>x</label>
+                <input type="range" id="res" min="1" max="10" value="1" step="1">
+            </div>
+
+            <div class="control-group">
+                <label>Brilho: <span id="val-bright">0</span></label>
+                <input type="range" id="brightness" min="-100" max="100" value="0">
+            </div>
+
+            <div class="control-group">
+                <label>Contraste: <span id="val-contrast">0</span></label>
+                <input type="range" id="contrast" min="-100" max="100" value="0">
+            </div>
+
+            <div class="control-group">
+                <label>Paleta de Cores</label>
+                <select id="palette">
+                    <option value="bw">1-bit (Preto & Branco)</option>
+                    <option value="gameboy">GameBoy (Clássico Verde)</option>
+                    <option value="sepia">Sépia Retro</option>
+                    <option value="cga">CGA (Magenta & Cyan)</option>
+                </select>
+            </div>
+
+            <div class="control-group"
+                style="flex-direction: row; align-items: center; justify-content: space-between;">
+                <label>Varredura Serpenteada</label>
+                <input type="checkbox" id="serpentine" checked>
+            </div>
+
+            <button class="btn-save" id="btnDownload">Salvar PNG</button>
+
+            <p style="font-size: 0.7rem; opacity: 0.5;">Dica: Clique e segure na imagem para ver a original.</p>
+        </aside>
+
+        <main class="viewport">
+            <div id="dropZone" class="upload-area">
+                <p>Arraste uma imagem ou use o botão ao lado</p>
+            </div>
+            <canvas id="mainCanvas" class="hidden"></canvas>
+        </main>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const fileInput = document.getElementById('fileInput');
+        const btnDownload = document.getElementById('btnDownload');
+
+        let originalImage = null;
+        let isShowingOriginal = false;
+
+        // Definição de Paletas (RGB)
+        const palettes = {
+            bw: [[0, 0, 0], [255, 255, 255]],
+            gameboy: [[15, 56, 15], [48, 98, 48], [139, 172, 15], [155, 188, 15]],
+            sepia: [[44, 34, 18], [100, 82, 56], [191, 171, 143], [255, 240, 210]],
+            cga: [[0, 0, 0], [85, 255, 255], [255, 85, 255], [255, 255, 255]]
+        };
+
+        // Event Listeners para UI
+        fileInput.onchange = (e) => loadImage(e.target.files[0]);
+
+        ['res', 'brightness', 'contrast', 'palette', 'serpentine'].forEach(id => {
+            document.getElementById(id).oninput = () => {
+                if (originalImage) {
+                    updateLabels();
+                    processImage();
+                }
+            };
+        });
+
+        function updateLabels() {
+            document.getElementById('val-res').innerText = document.getElementById('res').value;
+            document.getElementById('val-bright').innerText = document.getElementById('brightness').value;
+            document.getElementById('val-contrast').innerText = document.getElementById('contrast').value;
+        }
+
+        // Toggle Visualização Original
+        canvas.onmousedown = () => { isShowingOriginal = true; drawOriginal(); };
+        window.onmouseup = () => { if (isShowingOriginal) { isShowingOriginal = false; processImage(); } };
+
+        function loadImage(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    document.getElementById('dropZone').classList.add('hidden');
+                    canvas.classList.remove('hidden');
+                    processImage();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function drawOriginal() {
+            const scale = 1 / parseInt(document.getElementById('res').value);
+            canvas.width = originalImage.width * scale;
+            canvas.height = originalImage.height * scale;
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+        }
+
+        function processImage() {
+            if (!originalImage) return;
+
+            const pixelSize = parseInt(document.getElementById('res').value);
+            const brightness = parseInt(document.getElementById('brightness').value);
+            const contrast = parseInt(document.getElementById('contrast').value);
+            const paletteKey = document.getElementById('palette').value;
+            const useSerpentine = document.getElementById('serpentine').checked;
+
+            // 1. Downsampling (Resize inicial)
+            canvas.width = Math.max(1, Math.floor(originalImage.width / pixelSize));
+            canvas.height = Math.max(1, Math.floor(originalImage.height / pixelSize));
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+
+            let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            let pixels = imageData.data;
+
+            // 2. Pré-processamento (Brilho e Contraste)
+            const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+            for (let i = 0; i < pixels.length; i += 4) {
+                for (let j = 0; j < 3; j++) {
+                    let v = pixels[i + j] + brightness;
+                    pixels[i + j] = factor * (v - 128) + 128;
+                }
+            }
+
+            // 3. Aplicação do Algoritmo de Floyd-Steinberg
+            applyFloydSteinberg(imageData, palettes[paletteKey], useSerpentine);
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        /**
+         * Algoritmo de Difusão de Erro de Floyd-Steinberg
+         * @param {ImageData} imageData - Dados da imagem no canvas
+         * @param {Array} palette - Array de cores [R, G, B]
+         * @param {Boolean} serpentine - Se true, inverte direção a cada linha
+         */
+        function applyFloydSteinberg(imageData, palette, serpentine) {
+            const w = imageData.width;
+            const h = imageData.height;
+            const data = imageData.data;
+
+            for (let y = 0; y < h; y++) {
+                const reverse = serpentine && (y % 2 === 1);
+
+                // Se serpenteado, percorre da direita para a esquerda em linhas ímpares
+                for (let x = (reverse ? w - 1 : 0); reverse ? x >= 0 : x < w; reverse ? x-- : x++) {
+                    const i = (y * w + x) * 4;
+
+                    const oldR = data[i];
+                    const oldG = data[i + 1];
+                    const oldB = data[i + 2];
+
+                    // Encontra a cor mais próxima na paleta
+                    const newColor = findClosestColor([oldR, oldG, oldB], palette);
+
+                    data[i] = newColor[0];
+                    data[i + 1] = newColor[1];
+                    data[i + 2] = newColor[2];
+
+                    // Cálculo do Erro de Quantização
+                    const errR = oldR - newColor[0];
+                    const errG = oldG - newColor[1];
+                    const errB = oldB - newColor[2];
+
+                    // Distribui o erro para os vizinhos (Matriz de Floyd-Steinberg)
+                    // [      * 7/16]
+                    // [3/16  5/16 1/16]
+                    distributeError(data, x + (reverse ? -1 : 1), y, w, h, errR, errG, errB, 7 / 16);
+                    distributeError(data, x + (reverse ? 1 : -1), y + 1, w, h, errR, errG, errB, 3 / 16);
+                    distributeError(data, x, y + 1, w, h, errR, errG, errB, 5 / 16);
+                    distributeError(data, x + (reverse ? -1 : 1), y + 1, w, h, errR, errG, errB, 1 / 16);
+                }
+            }
+        }
+
+        function findClosestColor(pixel, palette) {
+            let closest = palette[0];
+            let minDist = Infinity;
+            for (const color of palette) {
+                const dist = Math.sqrt(
+                    Math.pow(pixel[0] - color[0], 2) +
+                    Math.pow(pixel[1] - color[1], 2) +
+                    Math.pow(pixel[2] - color[2], 2)
+                );
+                if (dist < minDist) {
+                    minDist = dist;
+                    closest = color;
+                }
+            }
+            return closest;
+        }
+
+        function distributeError(data, x, y, w, h, errR, errG, errB, weight) {
+            if (x < 0 || x >= w || y >= h) return;
+            const i = (y * w + x) * 4;
+            data[i] += errR * weight;
+            data[i + 1] += errG * weight;
+            data[i + 2] += errB * weight;
+        }
+
+        btnDownload.onclick = () => {
+            const link = document.createElement('a');
+            link.download = 'dither-art.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        };
+
+        updateLabels();
+    </script>
+
+</body>
+
+</html>

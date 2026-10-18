@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="{{lang}}">
+{{> head}}
+<body class="{{bodyClass}}">
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+  {{> header}}
+  <main id="conteudo" tabindex="-1">
+{{content}}
+  </main>
+  {{> footer}}
+  <script type="module" src="/js/main.js?v={{buildId}}" defer></script>
+</body>
+</html>
