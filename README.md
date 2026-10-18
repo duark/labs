@@ -269,7 +269,17 @@ Localmente, copie `.env.example` para `.env` e preencha. O `.env` está no `.git
 
 A partir daí, **cada push na branch principal publica o site**, e cada push em outra branch ou PR gera uma URL de preview.
 
-A URL usada em sitemap, RSS e Open Graph é detectada automaticamente pela Vercel (`VERCEL_PROJECT_PRODUCTION_URL`). Se você usar um domínio próprio, defina `SITE_URL=https://seudominio.com` nas variáveis de ambiente.
+A URL usada em sitemap, RSS, links canônicos e Open Graph vem de `siteUrl` em `src/site.config.js` (hoje `https://www.duark.com.br`). A variável de ambiente `SITE_URL`, se existir, tem prioridade. Sem nenhuma das duas, o build usa o domínio de produção detectado pela Vercel.
+
+### Domínio (www.duark.com.br)
+
+O `index.html` **não fica na raiz do repositório**: o build gera `dist/index.html` e a Vercel publica a pasta `dist`. Para o domínio funcionar com e sem `www`:
+
+1. Vercel → Project → **Settings → Domains**: adicione `www.duark.com.br` e `duark.com.br`, e configure o `duark.com.br` para **redirecionar** para `www.duark.com.br`.
+2. No painel DNS do seu domínio:
+   - `A` · `@` → o IP que a Vercel mostrar na tela de Domains (ex.: `216.198.79.1`)
+   - `CNAME` · `www` → o valor que a Vercel mostrar (ex.: `cname.vercel-dns.com`)
+3. Aguarde a propagação (de minutos a algumas horas). A Vercel emite o HTTPS sozinha.
 
 ---
 

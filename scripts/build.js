@@ -660,11 +660,14 @@ function copyPublic() {
 /* Build                                                               */
 /* ------------------------------------------------------------------ */
 
+// Prioridade: SITE_URL > siteUrl do config > domínio de produção detectado pela Vercel.
 function resolveSiteUrl(config) {
-  const fromEnv =
+  const url =
     process.env.SITE_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
-  return String(fromEnv || config.siteUrl).replace(/\/+$/, '');
+    config.siteUrl ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL && `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`) ||
+    'http://localhost:3000';
+  return String(url).replace(/\/+$/, '');
 }
 
 export async function build({ quiet = false } = {}) {
