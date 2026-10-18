@@ -12,6 +12,9 @@ export default {
   email: 'kelysson@duark.com.br',
   twitter: '@duark',
   ogImage: '/media/og-default.png',
+  // ID do Google Analytics 4. Deixe vazio ('') para desativar.
+  // A tag não é incluída no `npm run dev`, só no build de produção.
+  googleAnalyticsId: 'G-JK94L6JBC1',
 
   social: [
     { label: 'Instagram', url: 'https://instagram.com/duark' },

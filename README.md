@@ -290,6 +290,7 @@ O `index.html` **não fica na raiz do repositório**: o build gera `dist/index.h
 - **Estrutura das páginas:** `src/templates/`. `{{chave}}` insere um valor e `{{> nome}}` inclui um partial de `src/templates/partials/`.
 - **Animação do hero:** `src/js/hero.js` (densidade, cores, raio do cursor no topo do arquivo). A animação pausa fora da tela e com a aba oculta, e vira um quadro estático com `prefers-reduced-motion`.
 - **Imagem padrão de compartilhamento:** `public/media/og-default.png`.
+- **Google Analytics:** `googleAnalyticsId` em `src/site.config.js`. A tag gtag.js entra no `<head>` de todas as páginas no build de produção e fica de fora no `npm run dev`, para seus testes locais não contarem como visita. Deixe `''` para desativar. As ferramentas em `/tools/<slug>/` não recebem a tag, mas as visitas às páginas `/labs/<slug>` que as exibem são contadas.
 
 ---
 

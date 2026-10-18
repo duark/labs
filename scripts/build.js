@@ -670,7 +670,21 @@ function resolveSiteUrl(config) {
   return String(url).replace(/\/+$/, '');
 }
 
-export async function build({ quiet = false } = {}) {
+/** Tag do Google Analytics 4 (gtag.js), omitida no modo dev. */
+function analyticsTag(id, dev) {
+  if (!id || dev) return '';
+  if (!/^G-[A-Z0-9]+$/i.test(id)) throw new BuildError(`googleAnalyticsId inválido: "${id}".`);
+  return `  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '${id}');
+  </script>`;
+}
+
+export async function build({ quiet = false, dev = false } = {}) {
   const started = performance.now();
   // Query string evita o cache de módulos ao reconstruir no modo dev.
   const config = (await import(`${pathToFileURL(PATHS.config).href}?t=${Date.now()}`)).default;
@@ -694,6 +708,7 @@ export async function build({ quiet = false } = {}) {
     year: new Date().getFullYear(),
     socialLinks: socialLinks(config),
     buildId,
+    analytics: analyticsTag(config.googleAnalyticsId, dev),
   };
 
   function page({ template, data = {}, title, description, url, image, ogType = 'website', current = '', bodyClass = '', extraHead = '' }) {

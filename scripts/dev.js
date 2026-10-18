@@ -152,7 +152,7 @@ async function rebuild(reason) {
   building = true;
   try {
     if (reason) console.log(`\n↻ ${reason}`);
-    await build();
+    await build({ dev: true });
     for (const client of clients) client.write('data: reload\n\n');
   } catch (error) {
     console.error(`✗ Build falhou: ${error.message}`);
