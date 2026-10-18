@@ -6,10 +6,10 @@ export default {
     'Portfólio de Duark: graphic design, motion design e ferramentas criativas construídas com IA.',
   // Usada em sitemap, RSS e Open Graph. Na Vercel, a URL de produção é detectada
   // automaticamente; a variável de ambiente SITE_URL tem prioridade sobre tudo.
-  siteUrl: 'https://duark.vercel.app',
+  siteUrl: 'https://duark.com.',
   lang: 'pt-BR',
   locale: 'pt_BR',
-  email: 'contato@seudominio.com',
+  email: 'kelysson@duark.com.br',
   twitter: '@duark',
   ogImage: '/media/og-default.png',
 
